@@ -11,7 +11,9 @@ data class TileModel(
     val order: Int = 0,
     val customColor: Long? = null,
     val customLabel: String? = null,
-    val isAvailable: Boolean = true
+    val isAvailable: Boolean = true,
+    val iconMode: String? = null,
+    val customIconId: String? = null
 ) {
     val componentKey: String get() = if (activityName.isNotEmpty()) "$packageName/$activityName" else packageName
     val effectiveCols: Int get() = size.cols

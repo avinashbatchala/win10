@@ -49,6 +49,9 @@ fun AppListRow(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val isDark = com.ab.ui.theme.LocalMetroDarkTheme.current
+    val fgColor = com.ab.ui.theme.LocalMetroForeground.current
+    val surfaceColor = com.ab.ui.theme.LocalMetroSurface.current
     var showMenu by remember { mutableStateOf(false) }
 
     Box(
@@ -68,13 +71,27 @@ fun AppListRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // App icon container
+            val accentColor = com.ab.ui.theme.LocalMetroAccentColor.current
+            val isMetroOrMono = app.resolvedIcon is com.ab.model.ResolvedLauncherIcon.VectorGlyph ||
+                    app.resolvedIcon is com.ab.model.ResolvedLauncherIcon.MonochromeBitmap
+
             Box(
                 modifier = Modifier
                     .size(MetroDimensions.appListIconBoxSize)
-                    .background(Color(0xFF151515), RectangleShape),
+                    .background(
+                        if (isMetroOrMono) accentColor else (if (isDark) Color(0xFF181818) else Color(0xFFF0F0F0)),
+                        RectangleShape
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                if (app.iconBitmap != null) {
+                if (app.resolvedIcon != null) {
+                    LauncherIconView(
+                        icon = app.resolvedIcon,
+                        contentDescription = app.label,
+                        tint = Color.White,
+                        modifier = Modifier.size(MetroDimensions.appListIconInnerSize)
+                    )
+                } else if (app.iconBitmap != null) {
                     Image(
                         bitmap = app.iconBitmap,
                         contentDescription = app.label,
@@ -88,7 +105,7 @@ fun AppListRow(
             // App label
             Text(
                 text = app.label,
-                style = MetroTypography.appListItem,
+                style = MetroTypography.appListItem.copy(color = fgColor),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
@@ -100,14 +117,14 @@ fun AppListRow(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
             modifier = Modifier
-                .background(Color(0xFF1F1F1F), RectangleShape)
+                .background(surfaceColor, RectangleShape)
                 .testTag("app_context_menu")
         ) {
             DropdownMenuItem(
                 text = {
                     Text(
                         text = if (isPinned) "Unpin from Start" else "Pin to Start",
-                        style = MetroTypography.contextMenuItem
+                        style = MetroTypography.contextMenuItem.copy(color = fgColor)
                     )
                 },
                 onClick = {
@@ -115,7 +132,7 @@ fun AppListRow(
                     if (isPinned) onUnpinFromStart() else onPinToStart()
                 },
                 colors = MenuDefaults.itemColors(
-                    textColor = Color.White
+                    textColor = fgColor
                 )
             )
 
@@ -123,7 +140,7 @@ fun AppListRow(
                 text = {
                     Text(
                         text = "App settings",
-                        style = MetroTypography.contextMenuItem
+                        style = MetroTypography.contextMenuItem.copy(color = fgColor)
                     )
                 },
                 onClick = {
@@ -137,7 +154,7 @@ fun AppListRow(
                     } catch (_: Exception) {}
                 },
                 colors = MenuDefaults.itemColors(
-                    textColor = Color.White
+                    textColor = fgColor
                 )
             )
 
@@ -146,7 +163,7 @@ fun AppListRow(
                     Text(
                         text = "Uninstall",
                         style = MetroTypography.contextMenuItem.copy(
-                            color = if (app.canUninstall) Color.White else Color(0xFF666666)
+                            color = if (app.canUninstall) fgColor else (if (isDark) Color(0xFF666666) else Color(0xFFAAAAAA))
                         )
                     )
                 },
@@ -158,8 +175,8 @@ fun AppListRow(
                     }
                 },
                 colors = MenuDefaults.itemColors(
-                    textColor = Color.White,
-                    disabledTextColor = Color(0xFF666666)
+                    textColor = fgColor,
+                    disabledTextColor = if (isDark) Color(0xFF666666) else Color(0xFFAAAAAA)
                 )
             )
         }

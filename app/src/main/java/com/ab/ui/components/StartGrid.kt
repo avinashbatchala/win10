@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,11 +39,12 @@ fun StartGrid(
     tiles: List<TileModel>,
     accentColor: Color,
     showMoreTiles: Boolean,
+    tileTransparency: Float,
     isEditMode: Boolean,
     selectedTileId: String?,
     draggedTileId: String?,
     dragOffset: Offset,
-    getAppIcon: (String) -> ImageBitmap?,
+    getLauncherIcon: (packageName: String, activityName: String?) -> com.ab.model.ResolvedLauncherIcon,
     onTileClick: (TileModel) -> Unit,
     onTileLongClick: (String) -> Unit,
     onTileResize: (String) -> Unit,
@@ -51,6 +53,7 @@ fun StartGrid(
     onTileDrag: (Offset) -> Unit,
     onTileDragEnd: (Int, Int) -> Unit,
     onExitEditMode: () -> Unit,
+    onEmptyAreaLongClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
@@ -58,23 +61,15 @@ fun StartGrid(
     val density = LocalDensity.current
 
     val totalCols = if (showMoreTiles) 8 else 6
+    val gap = MetroDimensions.tileGap
+    val startInset = MetroDimensions.startHorizontalInset
+    val topInset = MetroDimensions.startTopInset
 
     BoxWithConstraints(
         modifier = modifier
-            .testTag("start_grid_container")
             .fillMaxSize()
-            .pointerInput(isEditMode) {
-                if (isEditMode) {
-                    detectTapGestures(
-                        onTap = { onExitEditMode() }
-                    )
-                }
-            }
+            .testTag("start_grid_container")
     ) {
-        val startInset = MetroDimensions.startHorizontalInset
-        val topInset = MetroDimensions.startTopInset
-        val gap = MetroDimensions.tileGap
-
         val availableWidth = maxWidth - (startInset * 2)
         val cellWidth = (availableWidth - (gap * (totalCols - 1))) / totalCols
         val step = cellWidth + gap
@@ -88,11 +83,22 @@ fun StartGrid(
                 .fillMaxWidth()
                 .height(totalGridHeight)
                 .verticalScroll(scrollState)
+                .pointerInput(isEditMode) {
+                    if (isEditMode) {
+                        detectTapGestures(
+                            onTap = { onExitEditMode() }
+                        )
+                    } else {
+                        detectTapGestures(
+                            onLongPress = { onEmptyAreaLongClick() }
+                        )
+                    }
+                }
         ) {
             for (tile in tiles) {
                 val isSelected = isEditMode && selectedTileId == tile.id
                 val isDragging = draggedTileId == tile.id
-                val icon = getAppIcon(tile.packageName)
+                val icon = getLauncherIcon(tile.packageName, tile.activityName)
 
                 val tileWidth = (cellWidth * tile.effectiveCols) + (gap * (tile.effectiveCols - 1))
                 val tileHeight = (cellWidth * tile.effectiveRows) + (gap * (tile.effectiveRows - 1))
@@ -120,43 +126,60 @@ fun StartGrid(
                                 Modifier
                             }
                         )
-                        .then(
+                        .pointerInput(isEditMode, tile.id) {
                             if (isEditMode) {
-                                Modifier.pointerInput(tile.id) {
-                                    detectDragGestures(
-                                        onDragStart = {
-                                            onTileDragStart(tile.id)
-                                        },
-                                        onDrag = { change, dragAmount ->
-                                            change.consume()
-                                            onTileDrag(dragAmount)
+                                detectDragGestures(
+                                    onDragStart = {
+                                        onTileDragStart(tile.id)
+                                    },
+                                    onDrag = { change, dragAmount ->
+                                        change.consume()
+                                        onTileDrag(dragAmount)
 
-                                            // Auto-scroll if dragged near top/bottom of screen
-                                            val currentYInScreen = baseYPx + dragOffset.y - scrollState.value
-                                            if (currentYInScreen < 100 && scrollState.value > 0) {
-                                                scrollState.dispatchRawDelta(-20f)
-                                            } else if (currentYInScreen > 1400) {
-                                                scrollState.dispatchRawDelta(20f)
+                                        // Auto-scroll logic when dragged near vertical edges
+                                        val currentTouchY = baseYPx + dragOffset.y
+                                        val viewportTop = scrollState.value.toFloat()
+                                        val viewportBottom = viewportTop + 1600f
+
+                                        if (currentTouchY - viewportTop < 120f) {
+                                            scope.launch {
+                                                scrollState.scrollBy(-30f)
                                             }
-                                        },
-                                        onDragEnd = {
-                                            val finalX = baseXPx + dragOffset.x
-                                            val finalY = baseYPx + dragOffset.y
-
-                                            val targetCol = ((finalX - with(density) { startInset.toPx() } + (stepPx / 2f)) / stepPx)
-                                                .toInt()
-                                                .coerceIn(0, totalCols - tile.effectiveCols)
-
-                                            val targetRow = ((finalY - with(density) { topInset.toPx() } + (stepPx / 2f)) / stepPx)
-                                                .toInt()
-                                                .coerceAtLeast(0)
-
-                                            onTileDragEnd(targetCol, targetRow)
-                                        },
-                                        onDragCancel = {
-                                            onTileDragEnd(tile.col, tile.row)
+                                        } else if (viewportBottom - currentTouchY < 120f) {
+                                            scope.launch {
+                                                scrollState.scrollBy(30f)
+                                            }
                                         }
-                                    )
+                                    },
+                                    onDragEnd = {
+                                        val finalXPx = baseXPx + dragOffset.x
+                                        val finalYPx = baseYPx + dragOffset.y
+
+                                        val targetCol = ((finalXPx - with(density) { startInset.toPx() } + (stepPx / 2f)) / stepPx)
+                                            .toInt()
+                                            .coerceIn(0, totalCols - tile.effectiveCols)
+
+                                        val targetRow = ((finalYPx - with(density) { topInset.toPx() } + (stepPx / 2f)) / stepPx)
+                                            .toInt()
+                                            .coerceAtLeast(0)
+
+                                        onTileDragEnd(targetCol, targetRow)
+                                    },
+                                    onDragCancel = {
+                                        onTileDragEnd(tile.col, tile.row)
+                                    }
+                                )
+                            }
+                        }
+                        .then(
+                            if (!isDragging) {
+                                val animAlpha by animateFloatAsState(
+                                    targetValue = 1f,
+                                    animationSpec = tween(MetroMotion.DURATION_NORMAL),
+                                    label = "tile_enter"
+                                )
+                                Modifier.graphicsLayer {
+                                    alpha = animAlpha
                                 }
                             } else {
                                 Modifier
@@ -167,8 +190,9 @@ fun StartGrid(
                         tile = tile,
                         widthDp = tileWidth,
                         heightDp = tileHeight,
-                        iconBitmap = icon,
+                        resolvedIcon = icon,
                         accentColor = accentColor,
+                        tileTransparency = tileTransparency,
                         isEditMode = isEditMode,
                         isSelected = isSelected,
                         isDragging = isDragging,

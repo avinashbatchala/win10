@@ -79,11 +79,15 @@ fun AppsScreen(
         runningIndex += 1 + apps.size // 1 for header + items
     }
 
+    val isDark = com.ab.ui.theme.LocalMetroDarkTheme.current
+    val bgColor = com.ab.ui.theme.LocalMetroBackground.current
+    val fgColor = com.ab.ui.theme.LocalMetroForeground.current
+
     Box(
         modifier = modifier
             .testTag("apps_screen")
             .fillMaxSize()
-            .background(MetroColors.BackgroundBlack)
+            .background(bgColor)
             .statusBarsPadding()
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -101,15 +105,19 @@ fun AppsScreen(
                         .testTag("apps_search_box")
                         .fillMaxWidth()
                         .height(MetroDimensions.searchBoxHeight)
-                        .background(MetroColors.SearchBackground, RectangleShape)
-                        .border(MetroDimensions.searchBoxBorderWidth, MetroColors.SearchBorder, RectangleShape)
+                        .background(if (isDark) Color.Black else Color.White, RectangleShape)
+                        .border(
+                            MetroDimensions.searchBoxBorderWidth,
+                            if (isDark) MetroColors.SearchBorderDark else MetroColors.SearchBorderLight,
+                            RectangleShape
+                        )
                         .padding(horizontal = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Search,
+                        imageVector = com.ab.ui.icons.MetroIcons.Search,
                         contentDescription = "Search",
-                        tint = MetroColors.TextDim,
+                        tint = if (isDark) MetroColors.TextDim else MetroColors.TextSubtle,
                         modifier = Modifier.size(20.dp)
                     )
 
@@ -119,15 +127,17 @@ fun AppsScreen(
                         if (searchQuery.isEmpty()) {
                             Text(
                                 text = "Search",
-                                style = MetroTypography.searchHint
+                                style = MetroTypography.searchHint.copy(
+                                    color = if (isDark) MetroColors.TextDim else MetroColors.TextSubtle
+                                )
                             )
                         }
                         BasicTextField(
                             value = searchQuery,
                             onValueChange = { viewModel.setSearchQuery(it) },
                             singleLine = true,
-                            textStyle = MetroTypography.searchInput,
-                            cursorBrush = SolidColor(Color.White),
+                            textStyle = MetroTypography.searchInput.copy(color = fgColor),
+                            cursorBrush = SolidColor(fgColor),
                             modifier = Modifier
                                 .testTag("apps_search_input")
                                 .fillMaxWidth()
@@ -136,9 +146,9 @@ fun AppsScreen(
 
                     if (searchQuery.isNotEmpty()) {
                         Icon(
-                            imageVector = Icons.Default.Close,
+                            imageVector = com.ab.ui.icons.MetroIcons.Close,
                             contentDescription = "Clear search",
-                            tint = Color.White,
+                            tint = fgColor,
                             modifier = Modifier
                                 .size(20.dp)
                                 .clickable { viewModel.setSearchQuery("") }

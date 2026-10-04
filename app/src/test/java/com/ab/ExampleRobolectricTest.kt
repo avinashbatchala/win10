@@ -71,4 +71,36 @@ class ExampleRobolectricTest {
         // Back at root again: returns false
         assertFalse(vm.handleInternalBack())
     }
+
+    @Test
+    fun `personalization state updates correctly`() {
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        val vm = LauncherViewModel(application)
+
+        // Test theme toggling
+        vm.setTheme(false)
+        assertFalse("Theme must be light", vm.settings.value.darkTheme)
+        vm.setTheme(true)
+        assertTrue("Theme must be dark", vm.settings.value.darkTheme)
+
+        // Test tile transparency clamping
+        vm.setTileTransparency(0.45f)
+        assertEquals(0.45f, vm.settings.value.tileTransparency, 0.001f)
+        vm.setTileTransparency(1.5f)
+        assertEquals(1.0f, vm.settings.value.tileTransparency, 0.001f)
+        vm.setTileTransparency(-0.2f)
+        assertEquals(0.0f, vm.settings.value.tileTransparency, 0.001f)
+
+        // Test accent color
+        val crimson = 0xFFA80000L
+        vm.setAccentColor(crimson)
+        assertEquals(crimson, vm.settings.value.accentColor)
+
+        // Test background URI
+        val testUri = "content://media/external/images/media/42"
+        vm.setBackgroundImageUri(testUri)
+        assertEquals(testUri, vm.settings.value.backgroundImageUri)
+        vm.setBackgroundImageUri(null)
+        assertEquals(null, vm.settings.value.backgroundImageUri)
+    }
 }

@@ -8,10 +8,6 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherActivityInfo
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Process
@@ -19,8 +15,9 @@ import android.os.UserHandle
 import android.os.UserManager
 import android.util.Log
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import com.ab.model.AppInfo
+import com.ab.model.IconRenderMode
+import com.ab.model.ResolvedLauncherIcon
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +25,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.concurrent.ConcurrentHashMap
 
 class InstalledAppRepository(
     private val context: Context,
@@ -44,69 +40,89 @@ class InstalledAppRepository(
     private val _isLoaded = MutableStateFlow(false)
     val isLoaded: StateFlow<Boolean> = _isLoaded.asStateFlow()
 
-    private val iconCache = ConcurrentHashMap<String, ImageBitmap>()
+    val iconRepository = LauncherIconRepository(context)
 
     private val launcherApps: LauncherApps? =
         context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as? LauncherApps
 
-    private val launcherAppsCallback = object : LauncherApps.Callback() {
-        override fun onPackageAdded(packageName: String, user: UserHandle) {
-            Log.d(TAG, "LauncherApps callback - package added: $packageName")
-            reloadApps()
-        }
+    private val launcherAppsCallback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+        object : LauncherApps.Callback() {
+            override fun onPackageRemoved(packageName: String, user: UserHandle) {
+                Log.d(TAG, "LauncherApps callback: onPackageRemoved for $packageName")
+                invalidatePackage(packageName)
+                reloadApps()
+            }
 
-        override fun onPackageChanged(packageName: String, user: UserHandle) {
-            Log.d(TAG, "LauncherApps callback - package changed: $packageName")
-            invalidatePackage(packageName)
-            reloadApps()
-        }
+            override fun onPackageAdded(packageName: String, user: UserHandle) {
+                Log.d(TAG, "LauncherApps callback: onPackageAdded for $packageName")
+                invalidatePackage(packageName)
+                reloadApps()
+            }
 
-        override fun onPackageRemoved(packageName: String, user: UserHandle) {
-            Log.d(TAG, "LauncherApps callback - package removed: $packageName")
-            invalidatePackage(packageName)
-            reloadApps()
-        }
+            override fun onPackageChanged(packageName: String, user: UserHandle) {
+                Log.d(TAG, "LauncherApps callback: onPackageChanged for $packageName")
+                invalidatePackage(packageName)
+                reloadApps()
+            }
 
-        override fun onPackagesAvailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) {
-            Log.d(TAG, "LauncherApps callback - packages available: ${packageNames.joinToString()}")
-            reloadApps()
-        }
+            override fun onPackagesAvailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) {
+                Log.d(TAG, "LauncherApps callback: onPackagesAvailable (${packageNames.joinToString()})")
+                packageNames.forEach { invalidatePackage(it) }
+                reloadApps()
+            }
 
-        override fun onPackagesUnavailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) {
-            Log.d(TAG, "LauncherApps callback - packages unavailable: ${packageNames.joinToString()}")
-            reloadApps()
+            override fun onPackagesUnavailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) {
+                Log.d(TAG, "LauncherApps callback: onPackagesUnavailable (${packageNames.joinToString()})")
+                reloadApps()
+            }
         }
-    }
+    } else null
 
     private val packageBroadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(ctx: Context?, intent: Intent?) {
-            val pkg = intent?.data?.schemeSpecificPart
-            val action = intent?.action
-            Log.d(TAG, "BroadcastReceiver action: $action for pkg: $pkg")
-            if (!pkg.isNullOrEmpty()) {
-                invalidatePackage(pkg)
+        override fun onReceive(c: Context?, intent: Intent?) {
+            val action = intent?.action ?: return
+            val uri: Uri? = intent.data
+            val packageName = uri?.schemeSpecificPart ?: return
+
+            Log.d(TAG, "Broadcast received: $action for package: $packageName")
+            when (action) {
+                Intent.ACTION_PACKAGE_ADDED,
+                Intent.ACTION_PACKAGE_REPLACED,
+                Intent.ACTION_PACKAGE_CHANGED -> {
+                    invalidatePackage(packageName)
+                    reloadApps()
+                }
+                Intent.ACTION_PACKAGE_REMOVED -> {
+                    val replacing = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)
+                    if (!replacing) {
+                        Log.d(TAG, "Permanent package removal confirmed for: $packageName")
+                        invalidatePackage(packageName)
+                        reloadApps()
+                    }
+                }
             }
-            reloadApps()
         }
     }
 
     init {
-        registerCallbacks()
+        registerReceivers()
         reloadApps()
     }
 
-    private fun registerCallbacks() {
-        try {
-            launcherApps?.registerCallback(launcherAppsCallback)
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to register LauncherApps callback", e)
+    private fun registerReceivers() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && launcherApps != null && launcherAppsCallback != null) {
+            try {
+                launcherApps.registerCallback(launcherAppsCallback)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to register LauncherApps callback", e)
+            }
         }
 
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
             addAction(Intent.ACTION_PACKAGE_REMOVED)
-            addAction(Intent.ACTION_PACKAGE_CHANGED)
             addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addAction(Intent.ACTION_PACKAGE_CHANGED)
             addDataScheme("package")
         }
         try {
@@ -125,8 +141,7 @@ class InstalledAppRepository(
     }
 
     private fun invalidatePackage(packageName: String) {
-        val keysToRemove = iconCache.keys.filter { it.startsWith("$packageName/") }
-        keysToRemove.forEach { iconCache.remove(it) }
+        iconRepository.invalidatePackage(packageName)
     }
 
     fun reloadApps() {
@@ -165,13 +180,11 @@ class InstalledAppRepository(
 
                         val component = info.componentName
                         val activityName = component.className
-                        val componentKey = "${pkg}/$activityName"
                         val label = info.label?.toString() ?: pkg
 
-                        val iconBitmap = iconCache.getOrPut(componentKey) {
-                            val drawable = info.getIcon(context.resources.displayMetrics.densityDpi)
-                            drawableToImageBitmap(drawable)
-                        }
+                        val resolvedIcon = iconRepository.resolveIcon(pkg, activityName)
+                        val iconBitmap = (resolvedIcon as? ResolvedLauncherIcon.OriginalBitmap)?.bitmap
+                            ?: (resolvedIcon as? ResolvedLauncherIcon.MonochromeBitmap)?.bitmap
 
                         val firstRawChar = label.trim().firstOrNull()?.uppercaseChar() ?: '#'
                         val firstLetter = if (firstRawChar in 'A'..'Z') firstRawChar else '#'
@@ -184,7 +197,8 @@ class InstalledAppRepository(
                                 label = label,
                                 iconBitmap = iconBitmap,
                                 firstLetter = firstLetter,
-                                canUninstall = canUninstall
+                                canUninstall = canUninstall,
+                                resolvedIcon = resolvedIcon
                             )
                         )
                     }
@@ -207,17 +221,11 @@ class InstalledAppRepository(
                 if (pkg == ownPackage) continue
 
                 val activityName = ri.activityInfo.name
-                val componentKey = "$pkg/$activityName"
                 val label = ri.loadLabel(pm)?.toString() ?: pkg
 
-                val iconBitmap = iconCache.getOrPut(componentKey) {
-                    try {
-                        val drawable = ri.loadIcon(pm)
-                        drawableToImageBitmap(drawable)
-                    } catch (_: Exception) {
-                        fallbackIcon()
-                    }
-                }
+                val resolvedIcon = iconRepository.resolveIcon(pkg, activityName)
+                val iconBitmap = (resolvedIcon as? ResolvedLauncherIcon.OriginalBitmap)?.bitmap
+                    ?: (resolvedIcon as? ResolvedLauncherIcon.MonochromeBitmap)?.bitmap
 
                 val firstRawChar = label.trim().firstOrNull()?.uppercaseChar() ?: '#'
                 val firstLetter = if (firstRawChar in 'A'..'Z') firstRawChar else '#'
@@ -230,7 +238,8 @@ class InstalledAppRepository(
                         label = label,
                         iconBitmap = iconBitmap,
                         firstLetter = firstLetter,
-                        canUninstall = canUninstall
+                        canUninstall = canUninstall,
+                        resolvedIcon = resolvedIcon
                     )
                 )
             }
@@ -244,42 +253,20 @@ class InstalledAppRepository(
         )
     }
 
-    private fun drawableToImageBitmap(drawable: Drawable?): ImageBitmap {
-        if (drawable == null) return fallbackIcon()
-
-        if (drawable is BitmapDrawable && drawable.bitmap != null && !drawable.bitmap.isRecycled) {
-            val bmp = drawable.bitmap
-            if (bmp.width in 48..144 && bmp.height in 48..144) {
-                return bmp.asImageBitmap()
-            }
-            val targetSize = 96
-            val scaled = Bitmap.createScaledBitmap(bmp, targetSize, targetSize, true)
-            return scaled.asImageBitmap()
-        }
-
-        val width = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth.coerceIn(48, 144) else 96
-        val height = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight.coerceIn(48, 144) else 96
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        drawable.setBounds(0, 0, canvas.width, canvas.height)
-        drawable.draw(canvas)
-        return bitmap.asImageBitmap()
-    }
-
-    private fun fallbackIcon(): ImageBitmap {
-        val bitmap = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        canvas.drawColor(android.graphics.Color.DKGRAY)
-        return bitmap.asImageBitmap()
-    }
-
     fun getAppIcon(packageName: String, activityName: String? = null): ImageBitmap? {
-        if (!activityName.isNullOrEmpty()) {
-            val key = "$packageName/$activityName"
-            iconCache[key]?.let { return it }
-        }
-        val entry = iconCache.entries.firstOrNull { it.key.startsWith("$packageName/") }
-        return entry?.value
+        val resolved = iconRepository.resolveIcon(packageName, activityName)
+        return (resolved as? ResolvedLauncherIcon.OriginalBitmap)?.bitmap
+            ?: (resolved as? ResolvedLauncherIcon.MonochromeBitmap)?.bitmap
+    }
+
+    fun resolveLauncherIcon(
+        packageName: String,
+        activityName: String? = null,
+        targetSizePx: Int = 144,
+        iconModeOverride: IconRenderMode? = null,
+        customIconId: String? = null
+    ): ResolvedLauncherIcon {
+        return iconRepository.resolveIcon(packageName, activityName, targetSizePx, iconModeOverride, customIconId)
     }
 
     fun isAppInstalled(packageName: String): Boolean {

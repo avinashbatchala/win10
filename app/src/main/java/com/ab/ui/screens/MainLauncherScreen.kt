@@ -72,7 +72,7 @@ fun MainLauncherScreen(
         modifier = modifier
             .testTag("main_launcher_container")
             .fillMaxSize()
-            .background(MetroColors.BackgroundBlack)
+            .background(com.ab.ui.theme.LocalMetroBackground.current)
     ) {
         HorizontalPager(
             state = pagerState,
@@ -106,6 +106,15 @@ fun MainLauncherScreen(
             },
             onToggleShowMoreTiles = {
                 viewModel.toggleShowMoreTiles()
+            },
+            onTileTransparencyChanged = { transparency ->
+                viewModel.setTileTransparency(transparency)
+            },
+            onThemeChanged = { dark ->
+                viewModel.setTheme(dark)
+            },
+            onSelectBackgroundUri = { uriStr ->
+                viewModel.setBackgroundImageUri(uriStr)
             },
             onRequestSetDefault = {
                 viewModel.requestSetDefaultLauncher(context)

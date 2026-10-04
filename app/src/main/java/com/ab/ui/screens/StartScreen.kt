@@ -1,38 +1,33 @@
 package com.ab.ui.screens
 
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.ab.model.LauncherSettings
 import com.ab.model.TileModel
 import com.ab.ui.components.StartGrid
+import com.ab.ui.icons.MetroIcons
+import com.ab.ui.theme.LocalMetroBackground
+import com.ab.ui.theme.LocalMetroForeground
 import com.ab.ui.theme.MetroColors
 import com.ab.ui.theme.MetroDimensions
 import com.ab.ui.theme.MetroTypography
@@ -49,20 +44,32 @@ fun StartScreen(
     modifier: Modifier = Modifier
 ) {
     val accentColor = Color(settings.accentColor)
-
-    BackHandler(enabled = isEditMode) {
-        viewModel.exitEditMode()
-    }
+    val wallpaperBitmap by viewModel.wallpaperBitmap.collectAsState()
+    val bgColor = LocalMetroBackground.current
+    val fgColor = if (wallpaperBitmap != null) Color.White else LocalMetroForeground.current
 
     Box(
         modifier = modifier
             .testTag("start_screen")
             .fillMaxSize()
-            .background(MetroColors.BackgroundBlack)
-            .statusBarsPadding()
+            .background(bgColor)
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Subtle top bar with title and quick settings
+        // Full Start-screen wallpaper background if selected
+        if (wallpaperBitmap != null) {
+            Image(
+                bitmap = wallpaperBitmap!!,
+                contentDescription = "Start wallpaper background",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+        ) {
+            // Top bar with Start title and Personalization trigger
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -71,19 +78,19 @@ fun StartScreen(
             ) {
                 Text(
                     text = "Start",
-                    style = MetroTypography.startTitle,
+                    style = MetroTypography.startTitle.copy(color = fgColor),
                     modifier = Modifier.weight(1f)
                 )
 
-                // Settings icon
+                // Personalization Settings icon with Metro glyph
                 IconButton(
                     onClick = { viewModel.openSettings() },
                     modifier = Modifier.testTag("start_settings_button")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Settings,
+                        imageVector = MetroIcons.Settings,
                         contentDescription = "Personalization Settings",
-                        tint = MetroColors.TextDim,
+                        tint = if (wallpaperBitmap != null) Color.White.copy(alpha = 0.8f) else MetroColors.TextDim,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -99,11 +106,12 @@ fun StartScreen(
                     tiles = tiles,
                     accentColor = accentColor,
                     showMoreTiles = settings.showMoreTiles,
+                    tileTransparency = settings.tileTransparency,
                     isEditMode = isEditMode,
                     selectedTileId = selectedTileId,
-                    draggedTileId = viewModel.draggedTileId.value,
-                    dragOffset = viewModel.dragOffset.value,
-                    getAppIcon = { pkg -> viewModel.getAppIcon(pkg) },
+                    draggedTileId = viewModel.draggedTileId.collectAsState().value,
+                    dragOffset = viewModel.dragOffset.collectAsState().value,
+                    getLauncherIcon = { pkg, act -> viewModel.resolveLauncherIcon(pkg, act) },
                     onTileClick = { tile ->
                         if (isEditMode) {
                             viewModel.onTileClickedInEdit(tile.id)
@@ -131,35 +139,36 @@ fun StartScreen(
                     },
                     onExitEditMode = {
                         viewModel.exitEditMode()
+                    },
+                    onEmptyAreaLongClick = {
+                        viewModel.openSettings()
                     }
                 )
             }
-        }
 
-        // Windows-style arrow affordance near bottom-right to glide to all apps
-        AnimatedVisibility(
-            visible = !isEditMode,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 18.dp)
-        ) {
-            Box(
+            // Bottom bar: subtle swipe hint or arrow to Apps list
+            Row(
                 modifier = Modifier
-                    .testTag("nav_to_apps_button")
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .border(1.5.dp, Color(0x66FFFFFF), CircleShape)
-                    .clickable { onNavigateToApps() },
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = MetroDimensions.startHorizontalInset,
+                        vertical = 8.dp
+                    ),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "All Apps",
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp)
-                )
+                Box(modifier = Modifier.weight(1f))
+
+                IconButton(
+                    onClick = onNavigateToApps,
+                    modifier = Modifier.testTag("navigate_to_apps_button")
+                ) {
+                    Icon(
+                        imageVector = MetroIcons.Forward,
+                        contentDescription = "All Apps",
+                        tint = if (wallpaperBitmap != null) Color.White.copy(alpha = 0.8f) else MetroColors.TextDim,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
     }

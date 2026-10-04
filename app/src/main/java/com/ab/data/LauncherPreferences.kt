@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -29,6 +30,8 @@ class LauncherPreferences(private val context: Context) {
         private val KEY_ACCENT_COLOR = longPreferencesKey("accent_color_long")
         private val KEY_SHOW_MORE_TILES = booleanPreferencesKey("show_more_tiles")
         private val KEY_DARK_THEME = booleanPreferencesKey("dark_theme")
+        private val KEY_TILE_TRANSPARENCY = floatPreferencesKey("tile_transparency")
+        private val KEY_BACKGROUND_IMAGE_URI = stringPreferencesKey("background_image_uri")
         private val KEY_FIRST_RUN_DONE = booleanPreferencesKey("first_run_done")
     }
 
@@ -41,7 +44,9 @@ class LauncherPreferences(private val context: Context) {
         LauncherSettings(
             accentColor = prefs[KEY_ACCENT_COLOR] ?: 0xFF0078D7L,
             darkTheme = prefs[KEY_DARK_THEME] ?: true,
-            showMoreTiles = prefs[KEY_SHOW_MORE_TILES] ?: false
+            showMoreTiles = prefs[KEY_SHOW_MORE_TILES] ?: false,
+            tileTransparency = prefs[KEY_TILE_TRANSPARENCY] ?: 0.0f,
+            backgroundImageUri = prefs[KEY_BACKGROUND_IMAGE_URI]
         )
     }
 
@@ -76,6 +81,22 @@ class LauncherPreferences(private val context: Context) {
         }
     }
 
+    suspend fun updateTileTransparency(transparency: Float) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_TILE_TRANSPARENCY] = transparency.coerceIn(0.0f, 1.0f)
+        }
+    }
+
+    suspend fun updateBackgroundImageUri(uriString: String?) {
+        context.dataStore.edit { prefs ->
+            if (uriString != null) {
+                prefs[KEY_BACKGROUND_IMAGE_URI] = uriString
+            } else {
+                prefs.remove(KEY_BACKGROUND_IMAGE_URI)
+            }
+        }
+    }
+
     private fun serializeTilesJson(tiles: List<TileModel>): String {
         val root = JSONObject()
         root.put("schemaVersion", CURRENT_SCHEMA_VERSION)
@@ -93,6 +114,8 @@ class LauncherPreferences(private val context: Context) {
                 put("order", if (tile.order != 0) tile.order else index)
                 if (tile.customColor != null) put("color", tile.customColor)
                 if (tile.customLabel != null) put("clbl", tile.customLabel)
+                if (tile.iconMode != null) put("imode", tile.iconMode)
+                if (tile.customIconId != null) put("cid", tile.customIconId)
             }
             array.put(obj)
         }
@@ -109,7 +132,6 @@ class LauncherPreferences(private val context: Context) {
                 val arr = root.optJSONArray("tiles") ?: JSONArray()
                 Pair(version, arr)
             } else {
-                // Legacy raw array fallback
                 Pair(1, JSONArray(jsonStr))
             }
 
@@ -132,7 +154,9 @@ class LauncherPreferences(private val context: Context) {
                         row = obj.getInt("row"),
                         order = obj.optInt("order", i),
                         customColor = if (obj.has("color")) obj.getLong("color") else null,
-                        customLabel = if (obj.has("clbl")) obj.getString("clbl") else null
+                        customLabel = if (obj.has("clbl")) obj.getString("clbl") else null,
+                        iconMode = if (obj.has("imode")) obj.getString("imode") else null,
+                        customIconId = if (obj.has("cid")) obj.getString("cid") else null
                     )
                 )
             }

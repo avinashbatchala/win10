@@ -6,9 +6,10 @@ data class AppInfo(
     val packageName: String,
     val activityName: String,
     val label: String,
-    val iconBitmap: ImageBitmap?,
+    val iconBitmap: ImageBitmap? = null,
     val firstLetter: Char,
-    val canUninstall: Boolean = false
+    val canUninstall: Boolean = false,
+    val resolvedIcon: ResolvedLauncherIcon? = null
 ) {
     val key: String get() = "$packageName/$activityName"
 }

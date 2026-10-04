@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Process
@@ -15,6 +17,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.ab.data.InstalledAppRepository
@@ -23,6 +26,7 @@ import com.ab.model.AppInfo
 import com.ab.model.LauncherSettings
 import com.ab.model.TileModel
 import com.ab.model.TileSize
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +43,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         private const val TAG_BACK = "LauncherBack"
         private const val TAG_UNINSTALL = "LauncherUninstall"
         private const val TAG_PACKAGE = "LauncherPackage"
+        private const val TAG_WALLPAPER = "LauncherWallpaper"
     }
 
     private val repository = InstalledAppRepository(application, viewModelScope)
@@ -52,6 +57,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private val _settings = MutableStateFlow(LauncherSettings())
     val settings: StateFlow<LauncherSettings> = _settings.asStateFlow()
+
+    // Wallpaper bitmap loaded asynchronously
+    private val _wallpaperBitmap = MutableStateFlow<ImageBitmap?>(null)
+    val wallpaperBitmap: StateFlow<ImageBitmap?> = _wallpaperBitmap.asStateFlow()
 
     // Edit mode state
     private val _isEditMode = MutableStateFlow(false)
@@ -103,9 +112,13 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         // Observe settings
         viewModelScope.launch {
             preferences.settingsFlow.collect { newSettings ->
+                val prevUri = _settings.value.backgroundImageUri
                 _settings.value = newSettings.copy(
                     isDefaultLauncher = checkIsDefaultLauncher()
                 )
+                if (newSettings.backgroundImageUri != prevUri || (_wallpaperBitmap.value == null && newSettings.backgroundImageUri != null)) {
+                    loadWallpaperAsync(newSettings.backgroundImageUri)
+                }
             }
         }
 
@@ -148,6 +161,80 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                     }
                 }
             }
+        }
+    }
+
+    private fun loadWallpaperAsync(uriString: String?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (uriString.isNullOrEmpty()) {
+                _wallpaperBitmap.value = null
+                return@launch
+            }
+            try {
+                val uri = Uri.parse(uriString)
+                val context = getApplication<Application>()
+                val resolver = context.contentResolver
+
+                // First decode bounds only
+                val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                resolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, options)
+                }
+
+                if (options.outWidth <= 0 || options.outHeight <= 0) {
+                    _wallpaperBitmap.value = null
+                    return@launch
+                }
+
+                // Sample based on screen dimensions for memory efficiency
+                val dm = context.resources.displayMetrics
+                val targetW = dm.widthPixels.coerceAtLeast(720)
+                val targetH = dm.heightPixels.coerceAtLeast(1280)
+
+                var sampleSize = 1
+                while (options.outWidth / (sampleSize * 2) >= targetW &&
+                    options.outHeight / (sampleSize * 2) >= targetH) {
+                    sampleSize *= 2
+                }
+
+                val decodeOptions = BitmapFactory.Options().apply {
+                    inSampleSize = sampleSize
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+
+                val decoded = resolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, decodeOptions)
+                }
+
+                _wallpaperBitmap.value = decoded?.asImageBitmap()
+                Log.d(TAG_WALLPAPER, "Wallpaper decoded (${decoded?.width}x${decoded?.height})")
+            } catch (e: Exception) {
+                Log.w(TAG_WALLPAPER, "Failed to load wallpaper: $uriString", e)
+                _wallpaperBitmap.value = null
+            }
+        }
+    }
+
+    fun setBackgroundImageUri(uriString: String?) {
+        _settings.value = _settings.value.copy(backgroundImageUri = uriString)
+        loadWallpaperAsync(uriString)
+        viewModelScope.launch {
+            preferences.updateBackgroundImageUri(uriString)
+        }
+    }
+
+    fun setTileTransparency(transparency: Float) {
+        val clamped = transparency.coerceIn(0.0f, 1.0f)
+        _settings.value = _settings.value.copy(tileTransparency = clamped)
+        viewModelScope.launch {
+            preferences.updateTileTransparency(clamped)
+        }
+    }
+
+    fun setTheme(dark: Boolean) {
+        _settings.value = _settings.value.copy(darkTheme = dark)
+        viewModelScope.launch {
+            preferences.updateTheme(dark)
         }
     }
 
@@ -330,6 +417,16 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun getAppIcon(packageName: String, activityName: String? = null): ImageBitmap? {
         return repository.getAppIcon(packageName, activityName)
+    }
+
+    fun resolveLauncherIcon(
+        packageName: String,
+        activityName: String? = null,
+        targetSizePx: Int = 144,
+        iconModeOverride: com.ab.model.IconRenderMode? = null,
+        customIconId: String? = null
+    ): com.ab.model.ResolvedLauncherIcon {
+        return repository.resolveLauncherIcon(packageName, activityName, targetSizePx, iconModeOverride, customIconId)
     }
 
     fun launchApp(context: Context, packageName: String, activityName: String? = null, label: String = "") {
@@ -540,9 +637,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         val newValue = !_settings.value.showMoreTiles
         _settings.value = _settings.value.copy(showMoreTiles = newValue)
         val totalCols = if (newValue) 8 else 6
-        val compacted = GridManager.compactGrid(_pinnedTiles.value, totalCols)
-        _pinnedTiles.value = compacted
-        saveTiles(compacted)
+        val repacked = GridManager.repackGrid(_pinnedTiles.value, totalCols)
+        _pinnedTiles.value = repacked
+        saveTiles(repacked)
         viewModelScope.launch {
             preferences.updateShowMoreTiles(newValue)
         }

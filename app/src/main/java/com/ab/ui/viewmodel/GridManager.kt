@@ -196,6 +196,38 @@ object GridManager {
         return compacted
     }
 
+    /**
+     * Repacks the grid deterministically when the column count changes (e.g. 6 <-> 8).
+     * Preserves pinned applications and tile sizes, avoids overlaps,
+     * finds the nearest valid placement for invalid coordinates, and compacts.
+     */
+    fun repackGrid(currentTiles: List<TileModel>, newTotalColumns: Int): List<TileModel> {
+        val sorted = currentTiles.sortedWith(compareBy({ it.row }, { it.col }, { it.order }))
+        val repacked = mutableListOf<TileModel>()
+
+        for (tile in sorted) {
+            val targetCol = if (tile.col + tile.effectiveCols > newTotalColumns) {
+                (newTotalColumns - tile.effectiveCols).coerceAtLeast(0)
+            } else {
+                tile.col
+            }
+            val targetRow = tile.row
+
+            val pos = findNearestValidPlacement(
+                preferredCol = targetCol,
+                preferredRow = targetRow,
+                cols = tile.effectiveCols,
+                rows = tile.effectiveRows,
+                existingTiles = repacked,
+                totalColumns = newTotalColumns,
+                excludeTileId = tile.id
+            )
+            repacked.add(tile.copy(col = pos.first, row = pos.second))
+        }
+
+        return compactGrid(repacked, newTotalColumns)
+    }
+
     fun getMaxRow(tiles: List<TileModel>): Int {
         if (tiles.isEmpty()) return 0
         return tiles.maxOf { it.row + it.effectiveRows }

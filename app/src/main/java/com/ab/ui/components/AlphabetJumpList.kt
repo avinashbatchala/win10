@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.ab.ui.theme.LocalMetroDarkTheme
 import com.ab.ui.theme.MetroColors
 import com.ab.ui.theme.MetroDimensions
 import com.ab.ui.theme.MetroTypography
@@ -44,6 +45,11 @@ fun AlphabetJumpList(
         onDismiss()
     }
 
+    val isDark = LocalMetroDarkTheme.current
+    val overlayBg = if (isDark) Color(0xF0000000) else Color(0xF0FFFFFF)
+    val inactiveBg = if (isDark) MetroColors.JumpInactiveDark else MetroColors.JumpInactiveLight
+    val inactiveText = if (isDark) MetroColors.JumpInactiveTextDark else MetroColors.JumpInactiveTextLight
+
     val characters = listOf('#') + ('A'..'Z').toList()
 
     AnimatedVisibility(
@@ -55,7 +61,7 @@ fun AlphabetJumpList(
             modifier = modifier
                 .testTag("jump_list_overlay")
                 .fillMaxSize()
-                .background(Color(0xF0000000))
+                .background(overlayBg)
                 .clickable { onDismiss() }
                 .padding(24.dp),
             contentAlignment = Alignment.Center
@@ -63,31 +69,32 @@ fun AlphabetJumpList(
             FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(enabled = false) {}, // Prevent clicks from passing through
-                horizontalArrangement = Arrangement.spacedBy(MetroDimensions.jumpGridGap, Alignment.CenterHorizontally),
+                    .clickable(enabled = false) {},
+                horizontalArrangement = Arrangement.spacedBy(MetroDimensions.jumpGridGap),
                 verticalArrangement = Arrangement.spacedBy(MetroDimensions.jumpGridGap),
                 maxItemsInEachRow = 4
             ) {
-                for (ch in characters) {
-                    val isActive = activeLetters.contains(ch)
-                    val bgColor = if (isActive) accentColor else MetroColors.JumpInactiveBackground
-                    val textColor = if (isActive) Color.White else MetroColors.JumpInactiveText
+                for (char in characters) {
+                    val isActive = activeLetters.contains(char)
 
                     Box(
                         modifier = Modifier
-                            .testTag("jump_cell_$ch")
+                            .testTag("jump_tile_$char")
                             .size(MetroDimensions.jumpCellSize)
-                            .background(bgColor, RectangleShape)
+                            .background(
+                                color = if (isActive) accentColor else inactiveBg,
+                                shape = RectangleShape
+                            )
                             .clickable(enabled = isActive) {
-                                onLetterSelected(ch)
+                                onLetterSelected(char)
                                 onDismiss()
                             },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = ch.toString(),
+                            text = char.toString(),
                             style = MetroTypography.jumpLetter,
-                            color = textColor
+                            color = if (isActive) Color.White else inactiveText
                         )
                     }
                 }

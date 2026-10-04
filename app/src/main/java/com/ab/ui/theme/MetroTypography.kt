@@ -1,5 +1,8 @@
 package com.ab.ui.theme
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -45,7 +48,8 @@ object MetroTypography {
         fontSize = 12.5.sp,
         lineHeight = 15.sp,
         letterSpacing = (-0.1).sp,
-        color = MetroColors.TextWhite
+        color = MetroColors.TextWhite,
+        shadow = Shadow(color = Color(0xDD000000), offset = Offset(1f, 1f), blurRadius = 3f)
     )
 
     val tileLabelLarge = TextStyle(
@@ -54,7 +58,8 @@ object MetroTypography {
         fontSize = 14.5.sp,
         lineHeight = 18.sp,
         letterSpacing = (-0.1).sp,
-        color = MetroColors.TextWhite
+        color = MetroColors.TextWhite,
+        shadow = Shadow(color = Color(0xDD000000), offset = Offset(1f, 1f), blurRadius = 3f)
     )
 
     val appListGroupHeader = TextStyle(
@@ -128,5 +133,35 @@ object MetroTypography {
         fontSize = 14.sp,
         letterSpacing = 0.5.sp,
         color = MetroColors.TextWhite
+    )
+
+    val settingsTitle = TextStyle(
+        fontFamily = SegoeUiFontFamily,
+        fontWeight = FontWeight.Light,
+        fontSize = 42.sp,
+        lineHeight = 48.sp,
+        letterSpacing = (-0.5).sp
+    )
+
+    val settingsSection = TextStyle(
+        fontFamily = SegoeUiFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 0.5.sp
+    )
+
+    val settingsLabel = TextStyle(
+        fontFamily = SegoeUiFontFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        lineHeight = 22.sp
+    )
+
+    val settingsSubtext = TextStyle(
+        fontFamily = SegoeUiFontFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 13.sp,
+        lineHeight = 18.sp
     )
 }

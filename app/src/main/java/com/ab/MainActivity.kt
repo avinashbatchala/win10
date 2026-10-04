@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
             val settings by viewModel.settings.collectAsState()
             val accentColor = Color(settings.accentColor)
 
-            MetroTheme(accentColor = accentColor) {
+            MetroTheme(accentColor = accentColor, darkTheme = settings.darkTheme) {
                 MainLauncherScreen(
                     viewModel = viewModel,
                     modifier = Modifier.fillMaxSize()
