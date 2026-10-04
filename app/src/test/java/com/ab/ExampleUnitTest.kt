@@ -253,4 +253,140 @@ class ExampleUnitTest {
         assertEquals(0, state3.activeFaceIndex)
         assertEquals(face1, state3.activeFace)
     }
+
+    // ---------------------------------------------------------------------------
+    // resizeTile regression tests
+    // ---------------------------------------------------------------------------
+
+    private fun tile(
+        id: String,
+        size: TileSize,
+        col: Int,
+        row: Int
+    ) = TileModel(id = id, packageName = "p.$id", label = id, size = size, col = col, row = row)
+
+    private fun assertGridInvariants(tiles: List<TileModel>, totalColumns: Int) {
+        for (t in tiles) {
+            assertTrue(
+                "Tile ${t.id} must be within $totalColumns columns (col=${t.col}, cols=${t.effectiveCols})",
+                t.col >= 0 && t.col + t.effectiveCols <= totalColumns
+            )
+            assertTrue("Tile ${t.id} must not have a negative row", t.row >= 0)
+        }
+        for (i in tiles.indices) {
+            for (j in i + 1 until tiles.size) {
+                val a = tiles[i]
+                val b = tiles[j]
+                assertFalse(
+                    "Tiles ${a.id} and ${b.id} must not overlap",
+                    GridManager.overlaps(
+                        a.col, a.row, a.effectiveCols, a.effectiveRows,
+                        b.col, b.row, b.effectiveCols, b.effectiveRows
+                    )
+                )
+            }
+        }
+    }
+
+    @Test
+    fun resizeToWideWithFreeSpaceAnchorsAndLeavesUnrelatedTiles() {
+        val tiles = listOf(
+            tile("t1", TileSize.MEDIUM, col = 0, row = 0),
+            tile("t2", TileSize.MEDIUM, col = 4, row = 0)
+        )
+
+        val resized = GridManager.resizeTile("t1", TileSize.WIDE, tiles, 6)
+
+        val t1 = resized.first { it.id == "t1" }
+        assertEquals(TileSize.WIDE, t1.size)
+        assertEquals("Resized tile must stay at its column", 0, t1.col)
+        assertEquals("Resized tile must stay at its row", 0, t1.row)
+
+        val t2 = resized.first { it.id == "t2" }
+        assertEquals("Unrelated tile must not move", 4, t2.col)
+        assertEquals("Unrelated tile must not move", 0, t2.row)
+
+        assertGridInvariants(resized, 6)
+    }
+
+    @Test
+    fun resizeIntoCollisionMovesOnlyConflictingTiles() {
+        val tiles = listOf(
+            tile("t1", TileSize.MEDIUM, col = 0, row = 0), // resized target
+            tile("t2", TileSize.MEDIUM, col = 2, row = 0), // conflicts once t1 becomes WIDE
+            tile("t3", TileSize.SMALL, col = 5, row = 0),  // unrelated
+            tile("t4", TileSize.MEDIUM, col = 0, row = 2)  // unrelated
+        )
+
+        val resized = GridManager.resizeTile("t1", TileSize.WIDE, tiles, 6)
+
+        val t1 = resized.first { it.id == "t1" }
+        assertEquals("Resized tile must remain anchored", 0, t1.col)
+        assertEquals("Resized tile must remain anchored", 0, t1.row)
+
+        val t3 = resized.first { it.id == "t3" }
+        assertEquals("Unrelated tile t3 must keep its column", 5, t3.col)
+        assertEquals("Unrelated tile t3 must keep its row", 0, t3.row)
+
+        val t4 = resized.first { it.id == "t4" }
+        assertEquals("Unrelated tile t4 must keep its column", 0, t4.col)
+        assertEquals("Unrelated tile t4 must keep its row", 2, t4.row)
+
+        assertGridInvariants(resized, 6)
+    }
+
+    @Test
+    fun resizeLargeToSmallDoesNotCompactUnrelatedTiles() {
+        val tiles = listOf(
+            tile("t1", TileSize.LARGE, col = 0, row = 0),
+            tile("t2", TileSize.MEDIUM, col = 2, row = 4)
+        )
+
+        val resized = GridManager.resizeTile("t1", TileSize.SMALL, tiles, 6)
+
+        val t1 = resized.first { it.id == "t1" }
+        assertEquals(TileSize.SMALL, t1.size)
+        assertEquals("Shrinking must keep the resized tile in place", 0, t1.col)
+        assertEquals("Shrinking must keep the resized tile in place", 0, t1.row)
+
+        val t2 = resized.first { it.id == "t2" }
+        assertEquals("Shrinking must not compact unrelated tiles", 2, t2.col)
+        assertEquals("Shrinking must not compact unrelated tiles", 4, t2.row)
+
+        assertGridInvariants(resized, 6)
+    }
+
+    @Test
+    fun resizeNearRightEdgeClampsHorizontally() {
+        val tiles = listOf(
+            tile("t1", TileSize.MEDIUM, col = 4, row = 0)
+        )
+
+        val resized = GridManager.resizeTile("t1", TileSize.WIDE, tiles, 6)
+
+        val t1 = resized.first { it.id == "t1" }
+        assertEquals("WIDE tile must be clamped to fit", 2, t1.col)
+        assertEquals("Row must be preserved", 0, t1.row)
+        assertGridInvariants(resized, 6)
+    }
+
+    @Test
+    fun everyResizeProducesValidNonOverlappingLayout() {
+        val base = listOf(
+            tile("t1", TileSize.MEDIUM, col = 0, row = 0),
+            tile("t2", TileSize.MEDIUM, col = 2, row = 0),
+            tile("t3", TileSize.WIDE, col = 0, row = 2),
+            tile("t4", TileSize.SMALL, col = 5, row = 0),
+            tile("t5", TileSize.LARGE, col = 0, row = 4)
+        )
+
+        val sizes = listOf(TileSize.SMALL, TileSize.MEDIUM, TileSize.WIDE, TileSize.LARGE)
+        for (tileId in base.map { it.id }) {
+            for (size in sizes) {
+                val resized = GridManager.resizeTile(tileId, size, base, 6)
+                assertEquals("All tiles must be preserved", base.size, resized.size)
+                assertGridInvariants(resized, 6)
+            }
+        }
+    }
 }

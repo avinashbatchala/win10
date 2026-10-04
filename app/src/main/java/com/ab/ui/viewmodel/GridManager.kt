@@ -93,8 +93,11 @@ object GridManager {
     }
 
     /**
-     * Resizes a tile, finding the nearest valid placement that avoids collisions
-     * and preserving exact grid alignment.
+     * Resizes a tile while keeping its top-left anchor whenever possible.
+     *
+     * Unlike [moveTile]/[repackGrid], resizing deliberately does NOT run a global
+     * compaction: shrinking a tile must not pull unrelated tiles upward, and
+     * enlarging one must only displace the tiles that actually conflict with it.
      */
     fun resizeTile(
         tileId: String,
@@ -105,31 +108,41 @@ object GridManager {
         val target = currentTiles.firstOrNull { it.id == tileId } ?: return currentTiles
         val otherTiles = currentTiles.filter { it.id != tileId }
 
-        var newCol = target.col
-        if (newCol + newSize.cols > totalColumns) {
-            newCol = (totalColumns - newSize.cols).coerceAtLeast(0)
+        // 1. Resized target keeps its top-left, clamped horizontally so the new
+        //    width fits inside the grid.
+        val newCol = target.col.coerceIn(0, (totalColumns - newSize.cols).coerceAtLeast(0))
+        val newRow = target.row.coerceAtLeast(0)
+        val updatedTarget = target.copy(size = newSize, col = newCol, row = newRow)
+
+        // 2. Resolve the rest in stable order. A tile is left untouched unless it
+        //    overlaps the resized tile or an already-relocated tile.
+        val resolved = mutableListOf(updatedTarget)
+        for (other in otherTiles) {
+            val conflicts = resolved.any { placed ->
+                overlaps(
+                    placed.col, placed.row, placed.effectiveCols, placed.effectiveRows,
+                    other.col, other.row, other.effectiveCols, other.effectiveRows
+                )
+            }
+
+            if (!conflicts) {
+                resolved.add(other)
+            } else {
+                // Prefer staying near the original column but below the resized tile.
+                val nextPos = findNearestValidPlacement(
+                    preferredCol = other.col,
+                    preferredRow = updatedTarget.row + updatedTarget.effectiveRows,
+                    cols = other.effectiveCols,
+                    rows = other.effectiveRows,
+                    existingTiles = resolved,
+                    totalColumns = totalColumns,
+                    excludeTileId = other.id
+                )
+                resolved.add(other.copy(col = nextPos.first, row = nextPos.second))
+            }
         }
-        val newRow = target.row
 
-        // If fits without collision, use this exact position
-        if (!isPositionOccupied(newCol, newRow, newSize.cols, newSize.rows, otherTiles)) {
-            val updatedTarget = target.copy(size = newSize, col = newCol, row = newRow)
-            return compactGrid(otherTiles + updatedTarget, totalColumns)
-        }
-
-        // If collides, find the nearest valid non-overlapping placement
-        val nearestPlacement = findNearestValidPlacement(
-            preferredCol = newCol,
-            preferredRow = newRow,
-            cols = newSize.cols,
-            rows = newSize.rows,
-            existingTiles = otherTiles,
-            totalColumns = totalColumns,
-            excludeTileId = tileId
-        )
-
-        val updatedTarget = target.copy(size = newSize, col = nearestPlacement.first, row = nearestPlacement.second)
-        return compactGrid(otherTiles + updatedTarget, totalColumns)
+        return resolved
     }
 
     /**

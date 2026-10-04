@@ -14,15 +14,21 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntOffset
@@ -31,6 +37,9 @@ import androidx.compose.ui.zIndex
 import com.ab.model.TileModel
 import com.ab.ui.theme.MetroDimensions
 import com.ab.ui.theme.MetroMotion
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -62,6 +71,32 @@ fun StartGrid(
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
 
+    // Measured height of the visible scroll viewport in pixels. Updated by layout
+    // so drag auto-scroll adapts to any screen size/density instead of assuming one.
+    var viewportHeightPx by remember { mutableIntStateOf(0) }
+
+    // Single auto-scroll job so rapid drag events don't spawn a scroll coroutine each frame.
+    var autoScrollJob by remember { mutableStateOf<Job?>(null) }
+    var autoScrollDirection by remember { mutableFloatStateOf(0f) }
+
+    fun setAutoScroll(direction: Float) {
+        if (autoScrollDirection == direction) return
+        autoScrollDirection = direction
+        autoScrollJob?.cancel()
+        autoScrollJob = null
+        if (direction == 0f) return
+        autoScrollJob = scope.launch {
+            while (isActive) {
+                scrollState.scrollBy(direction * 24f)
+                delay(16L)
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { autoScrollJob?.cancel() }
+    }
+
     val totalCols = if (showMoreTiles) 8 else 6
     val gap = MetroDimensions.tileGap
     val startInset = MetroDimensions.startHorizontalInset
@@ -77,13 +112,20 @@ fun StartGrid(
         val step = cellWidth + gap
 
         val maxRow = (tiles.maxOfOrNull { it.row + it.effectiveRows } ?: 0).coerceAtLeast(8)
-        val totalGridHeight = topInset + (step * maxRow) + MetroDimensions.startBottomInset + 100.dp
+        // Generous editable tail: a larger static buffer plus, while editing, half a
+        // viewport so the last tile can be dragged/scrolled well past the fold.
+        val tailBuffer = (step * 2) + 64.dp
+        val editScrollBuffer = if (isEditMode && maxHeight.value.isFinite()) maxHeight * 0.5f else 0.dp
+        val totalGridHeight = topInset + (step * maxRow) + MetroDimensions.startBottomInset +
+            tailBuffer + editScrollBuffer
 
+        // Outer viewport owns the scroll and fills the available space. The inner
+        // content box owns the computed height so offset-positioned tiles are reachable.
         Box(
             modifier = Modifier
                 .testTag("start_grid_scrollable")
-                .fillMaxWidth()
-                .height(totalGridHeight)
+                .fillMaxSize()
+                .onSizeChanged { viewportHeightPx = it.height }
                 .verticalScroll(scrollState)
                 .pointerInput(isEditMode) {
                     if (isEditMode) {
@@ -97,6 +139,12 @@ fun StartGrid(
                     }
                 }
         ) {
+            Box(
+                modifier = Modifier
+                    .testTag("start_grid_content")
+                    .fillMaxWidth()
+                    .height(totalGridHeight)
+            ) {
             for (tile in tiles) {
                 val isSelected = isEditMode && selectedTileId == tile.id
                 val isDragging = draggedTileId == tile.id
@@ -131,32 +179,37 @@ fun StartGrid(
                         )
                         .pointerInput(isEditMode, tile.id) {
                             if (isEditMode) {
+                                // Accumulated drag for this gesture, so edge math doesn't
+                                // depend on a stale captured dragOffset mid-gesture.
+                                var accumulatedDrag = Offset.Zero
                                 detectDragGestures(
                                     onDragStart = {
+                                        accumulatedDrag = Offset.Zero
                                         onTileDragStart(tile.id)
                                     },
                                     onDrag = { change, dragAmount ->
                                         change.consume()
                                         onTileDrag(dragAmount)
+                                        accumulatedDrag += dragAmount
 
-                                        // Auto-scroll logic when dragged near vertical edges
-                                        val currentTouchY = baseYPx + dragOffset.y
+                                        // Auto-scroll near vertical edges using the measured
+                                        // viewport height (pixels throughout).
+                                        val edgeThresholdPx = with(density) { 96.dp.toPx() }
+                                        val currentTouchY = baseYPx + accumulatedDrag.y
                                         val viewportTop = scrollState.value.toFloat()
-                                        val viewportBottom = viewportTop + 1600f
+                                        val viewportBottom = viewportTop + viewportHeightPx
 
-                                        if (currentTouchY - viewportTop < 120f) {
-                                            scope.launch {
-                                                scrollState.scrollBy(-30f)
-                                            }
-                                        } else if (viewportBottom - currentTouchY < 120f) {
-                                            scope.launch {
-                                                scrollState.scrollBy(30f)
-                                            }
+                                        val scrollDirection = when {
+                                            currentTouchY - viewportTop < edgeThresholdPx -> -1f
+                                            viewportBottom - currentTouchY < edgeThresholdPx -> 1f
+                                            else -> 0f
                                         }
+                                        setAutoScroll(scrollDirection)
                                     },
                                     onDragEnd = {
-                                        val finalXPx = baseXPx + dragOffset.x
-                                        val finalYPx = baseYPx + dragOffset.y
+                                        setAutoScroll(0f)
+                                        val finalXPx = baseXPx + accumulatedDrag.x
+                                        val finalYPx = baseYPx + accumulatedDrag.y
 
                                         val targetCol = ((finalXPx - with(density) { startInset.toPx() } + (stepPx / 2f)) / stepPx)
                                             .toInt()
@@ -169,6 +222,7 @@ fun StartGrid(
                                         onTileDragEnd(targetCol, targetRow)
                                     },
                                     onDragCancel = {
+                                        setAutoScroll(0f)
                                         onTileDragEnd(tile.col, tile.row)
                                     }
                                 )
@@ -219,6 +273,7 @@ fun StartGrid(
                         }
                     )
                 }
+            }
             }
         }
     }
