@@ -1011,4 +1011,62 @@ object MetroIcons {
             }
         }.build()
     }
+
+    val Info: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "MetroInfo",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(
+                fill = null,
+                stroke = SolidColor(Color.White),
+                strokeLineWidth = 2f
+            ) {
+                moveTo(12f, 2.5f)
+                arcTo(9.5f, 9.5f, 0f, true, true, 11.99f, 2.5f)
+            }
+            path(fill = SolidColor(Color.White)) {
+                // Dot of the "i"
+                moveTo(10.6f, 6.4f); lineTo(13.4f, 6.4f); lineTo(13.4f, 9.2f); lineTo(10.6f, 9.2f); close()
+                // Stem
+                moveTo(10.6f, 10.8f); lineTo(13.4f, 10.8f); lineTo(13.4f, 18f); lineTo(10.6f, 18f); close()
+            }
+        }.build()
+    }
+
+    val Battery: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "MetroBattery",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(
+                fill = null,
+                stroke = SolidColor(Color.White),
+                strokeLineWidth = 2f,
+                strokeLineCap = StrokeCap.Square,
+                strokeLineJoin = StrokeJoin.Miter
+            ) {
+                moveTo(2f, 7f)
+                lineTo(19f, 7f)
+                lineTo(19f, 17f)
+                lineTo(2f, 17f)
+                close()
+                // Terminals
+                moveTo(21f, 10f)
+                lineTo(22.5f, 10f)
+                lineTo(22.5f, 14f)
+                lineTo(21f, 14f)
+            }
+            path(fill = SolidColor(Color.White)) {
+                // Charge level
+                moveTo(4.5f, 9.5f); lineTo(11f, 9.5f); lineTo(11f, 14.5f); lineTo(4.5f, 14.5f); close()
+            }
+        }.build()
+    }
 }

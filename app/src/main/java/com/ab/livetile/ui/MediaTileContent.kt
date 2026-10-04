@@ -53,6 +53,8 @@ fun MediaTileContent(
     size: TileSize,
     defaultLabel: String,
     dispatcher: MediaActionDispatcher? = null,
+    showControls: Boolean = true,
+    showProgress: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val media = face.mediaState
@@ -86,9 +88,9 @@ fun MediaTileContent(
 
     when (size) {
         TileSize.SMALL -> SmallMediaTile(face, media)
-        TileSize.MEDIUM -> MediumMediaTile(face, media, label, dispatcher)
-        TileSize.WIDE -> WideMediaTile(face, media, label, dispatcher)
-        TileSize.LARGE -> LargeMediaTile(face, media, label, dispatcher)
+        TileSize.MEDIUM -> MediumMediaTile(face, media, label, dispatcher, showControls)
+        TileSize.WIDE -> WideMediaTile(face, media, label, dispatcher, showControls, showProgress)
+        TileSize.LARGE -> LargeMediaTile(face, media, label, dispatcher, showControls, showProgress)
     }
 }
 
@@ -126,7 +128,8 @@ private fun MediumMediaTile(
     face: LiveTileFace,
     media: MediaSessionUiState,
     label: String,
-    dispatcher: MediaActionDispatcher?
+    dispatcher: MediaActionDispatcher?,
+    showControls: Boolean
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         // Artwork Background if available
@@ -172,25 +175,27 @@ private fun MediumMediaTile(
                 )
 
                 // Quick Play/Pause tap target
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .background(Color.Black.copy(alpha = 0.4f), RectangleShape)
-                        .clickable {
-                            if (media.isPlaying) {
-                                dispatcher?.pause(media.packageName)
-                            } else {
-                                dispatcher?.play(media.packageName)
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (media.isPlaying) MetroIcons.Pause else MetroIcons.Play,
-                        contentDescription = if (media.isPlaying) "Pause" else "Play",
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
+                if (showControls) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(Color.Black.copy(alpha = 0.4f), RectangleShape)
+                            .clickable {
+                                if (media.isPlaying) {
+                                    dispatcher?.pause(media.packageName)
+                                } else {
+                                    dispatcher?.play(media.packageName)
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (media.isPlaying) MetroIcons.Pause else MetroIcons.Play,
+                            contentDescription = if (media.isPlaying) "Pause" else "Play",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
 
@@ -232,7 +237,9 @@ private fun WideMediaTile(
     face: LiveTileFace,
     media: MediaSessionUiState,
     label: String,
-    dispatcher: MediaActionDispatcher?
+    dispatcher: MediaActionDispatcher?,
+    showControls: Boolean,
+    showProgress: Boolean
 ) {
     Box(
         modifier = Modifier
@@ -302,7 +309,7 @@ private fun WideMediaTile(
                 }
 
                 // Transport Controls: Previous, Play/Pause, Next
-                Row(
+                if (showControls) Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
@@ -367,7 +374,7 @@ private fun WideMediaTile(
         }
 
         // Playback progress bar along bottom if duration is known
-        if (media.durationMs > 0) {
+        if (showProgress && media.durationMs > 0) {
             MediaProgressBar(
                 positionMs = media.positionMs,
                 durationMs = media.durationMs,
@@ -387,7 +394,9 @@ private fun LargeMediaTile(
     face: LiveTileFace,
     media: MediaSessionUiState,
     label: String,
-    dispatcher: MediaActionDispatcher?
+    dispatcher: MediaActionDispatcher?,
+    showControls: Boolean,
+    showProgress: Boolean
 ) {
     Box(
         modifier = Modifier
@@ -452,7 +461,7 @@ private fun LargeMediaTile(
             Spacer(modifier = Modifier.height(6.dp))
 
             // Transport Controls: Centered Previous, Play/Pause, Next
-            Row(
+            if (showControls) Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
@@ -516,7 +525,7 @@ private fun LargeMediaTile(
             }
 
             // Progress Bar with timestamps
-            if (media.durationMs > 0) {
+            if (showProgress && media.durationMs > 0) {
                 Spacer(modifier = Modifier.height(6.dp))
                 MediaProgressBarWithTime(
                     positionMs = media.positionMs,

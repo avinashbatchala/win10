@@ -53,6 +53,8 @@ fun LiveTileRenderer(
     tileSize: TileSize,
     defaultLabel: String,
     dispatcher: com.ab.media.MediaActionDispatcher? = null,
+    mediaShowControls: Boolean = true,
+    mediaShowProgress: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val activeFace = liveState.activeFace ?: return
@@ -105,7 +107,9 @@ fun LiveTileRenderer(
             face = displayedFace,
             tileSize = tileSize,
             defaultLabel = defaultLabel,
-            dispatcher = dispatcher
+            dispatcher = dispatcher,
+            mediaShowControls = mediaShowControls,
+            mediaShowProgress = mediaShowProgress
         )
     }
 }
@@ -115,7 +119,9 @@ private fun RenderTemplate(
     face: LiveTileFace,
     tileSize: TileSize,
     defaultLabel: String,
-    dispatcher: com.ab.media.MediaActionDispatcher?
+    dispatcher: com.ab.media.MediaActionDispatcher?,
+    mediaShowControls: Boolean,
+    mediaShowProgress: Boolean
 ) {
     val displayLabel = face.labelOverride ?: defaultLabel
 
@@ -127,7 +133,14 @@ private fun RenderTemplate(
         LiveTileTemplate.DATE -> DateTemplate(face, tileSize, displayLabel)
         LiveTileTemplate.IMAGE -> ImageTemplate(face, tileSize, displayLabel)
         LiveTileTemplate.IMAGE_AND_TEXT -> ImageAndTextTemplate(face, tileSize, displayLabel)
-        LiveTileTemplate.MEDIA -> MediaTileContent(face, tileSize, displayLabel, dispatcher)
+        LiveTileTemplate.MEDIA -> MediaTileContent(
+            face,
+            tileSize,
+            displayLabel,
+            dispatcher,
+            showControls = mediaShowControls,
+            showProgress = mediaShowProgress
+        )
     }
 }
 

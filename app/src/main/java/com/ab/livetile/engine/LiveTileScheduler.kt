@@ -7,6 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Coordinates Live Tile visual transitions.
@@ -19,6 +20,20 @@ class LiveTileScheduler(
 ) {
     private var schedulerJob: Job? = null
     private val isForeground = AtomicBoolean(true)
+
+    // User-configurable animation behaviour; read on every loop iteration.
+    private val animationsEnabled = AtomicBoolean(true)
+    private val flipIntervalMs = AtomicLong(4000L)
+
+    val isRunning: Boolean get() = schedulerJob?.isActive == true
+
+    fun setAnimationsEnabled(enabled: Boolean) {
+        animationsEnabled.set(enabled)
+    }
+
+    fun setFlipInterval(intervalMs: Long) {
+        flipIntervalMs.set(intervalMs.coerceAtLeast(1_000L))
+    }
 
     // Registered tiles with multiple faces eligible for staggered rotation
     private val eligibleTiles = mutableListOf<String>()
@@ -38,10 +53,11 @@ class LiveTileScheduler(
         if (schedulerJob?.isActive == true) return
         schedulerJob = scope.launch(Dispatchers.Default) {
             while (isActive) {
-                // Wait between 3.5 and 5 seconds between individual tile flips
-                delay(4000L)
+                // Wait between individual tile flips. Interval is user-configurable
+                // (low / normal / high) and never exposed as raw milliseconds in the UI.
+                delay(flipIntervalMs.get())
 
-                if (!isForeground.get()) continue
+                if (!isForeground.get() || !animationsEnabled.get()) continue
 
                 val targetKey = synchronized(eligibleTiles) {
                     if (eligibleTiles.isNotEmpty()) {

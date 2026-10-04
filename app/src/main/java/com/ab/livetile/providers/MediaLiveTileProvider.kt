@@ -16,7 +16,8 @@ import com.ab.ui.icons.MetroIcons
  * 2. Generic launcher-owned "Now Playing" tile
  */
 class MediaLiveTileProvider(
-    private val mediaRepository: MediaSessionRepository
+    private val mediaRepository: MediaSessionRepository,
+    private val isArtworkEnabled: () -> Boolean = { true }
 ) : LiveTileProvider {
 
     companion object {
@@ -84,7 +85,7 @@ class MediaLiveTileProvider(
             primaryText = displayTitle,
             secondaryText = displaySubtitle,
             tertiaryText = session.album,
-            imageBitmap = session.artworkBitmap,
+            imageBitmap = if (isArtworkEnabled()) session.artworkBitmap else null,
             iconVector = MetroIcons.Music,
             mediaState = session,
             labelOverride = if (isNowPlayingTile) "Now Playing" else fallbackLabel,

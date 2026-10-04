@@ -42,6 +42,14 @@ class InstalledAppRepository(
 
     val iconRepository = LauncherIconRepository(context)
 
+    // Global icon appearance preference, applied when querying the Apps list.
+    @Volatile
+    private var iconModeOverride: com.ab.model.IconRenderMode? = null
+
+    fun setIconModeOverride(mode: com.ab.model.IconRenderMode?) {
+        iconModeOverride = mode
+    }
+
     private val launcherApps: LauncherApps? =
         context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as? LauncherApps
 
@@ -182,7 +190,7 @@ class InstalledAppRepository(
                         val activityName = component.className
                         val label = info.label?.toString() ?: pkg
 
-                        val resolvedIcon = iconRepository.resolveIcon(pkg, activityName)
+                        val resolvedIcon = iconRepository.resolveIcon(pkg, activityName, iconModeOverride = iconModeOverride)
                         val iconBitmap = (resolvedIcon as? ResolvedLauncherIcon.OriginalBitmap)?.bitmap
                             ?: (resolvedIcon as? ResolvedLauncherIcon.MonochromeBitmap)?.bitmap
 
@@ -223,7 +231,7 @@ class InstalledAppRepository(
                 val activityName = ri.activityInfo.name
                 val label = ri.loadLabel(pm)?.toString() ?: pkg
 
-                val resolvedIcon = iconRepository.resolveIcon(pkg, activityName)
+                val resolvedIcon = iconRepository.resolveIcon(pkg, activityName, iconModeOverride = iconModeOverride)
                 val iconBitmap = (resolvedIcon as? ResolvedLauncherIcon.OriginalBitmap)?.bitmap
                     ?: (resolvedIcon as? ResolvedLauncherIcon.MonochromeBitmap)?.bitmap
 

@@ -2,6 +2,11 @@ package com.ab.ui.screens
 
 import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,12 +16,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import com.ab.ui.components.SettingsSheet
-import com.ab.ui.theme.MetroColors
+import com.ab.ui.settings.AppDetailsScreen
+import com.ab.ui.settings.HiddenAppsScreen
+import com.ab.ui.settings.LauncherSettingsScreen
+import com.ab.ui.settings.ManageAppsScreen
+import com.ab.ui.settings.SettingsDestination
+import com.ab.ui.settings.SettingsRootScreen
 import com.ab.ui.viewmodel.LauncherViewModel
 import kotlinx.coroutines.launch
 
@@ -25,7 +36,6 @@ fun MainLauncherScreen(
     viewModel: LauncherViewModel,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(pageCount = { 2 })
 
@@ -34,7 +44,13 @@ fun MainLauncherScreen(
     val isEditMode by viewModel.isEditMode.collectAsState()
     val selectedTileId by viewModel.selectedTileId.collectAsState()
     val isSettingsOpen by viewModel.isSettingsOpen.collectAsState()
+    val settingsStack by viewModel.settingsBackStack.collectAsState()
     val requestScrollToStart by viewModel.requestScrollToStart.collectAsState()
+    val currentSettingsDestination = settingsStack.lastOrNull()
+    // Keep the last destination during the exit animation so Settings does not blank out.
+    var lastSettingsDestination by remember { mutableStateOf<SettingsDestination?>(null) }
+    if (currentSettingsDestination != null) lastSettingsDestination = currentSettingsDestination
+    val shownSettingsDestination = currentSettingsDestination ?: lastSettingsDestination
 
     // Handle scroll to Start request (e.g. from Home button / intent)
     LaunchedEffect(requestScrollToStart) {
@@ -97,42 +113,50 @@ fun MainLauncherScreen(
             }
         }
 
-        // Settings sheet overlay
-        SettingsSheet(
-            isOpen = isSettingsOpen,
-            settings = settings,
-            onAccentColorSelected = { colorLong ->
-                viewModel.setAccentColor(colorLong)
-            },
-            onToggleShowMoreTiles = {
-                viewModel.toggleShowMoreTiles()
-            },
-            onTileTransparencyChanged = { transparency ->
-                viewModel.setTileTransparency(transparency)
-            },
-            onThemeChanged = { dark ->
-                viewModel.setTheme(dark)
-            },
-            onSelectBackgroundUri = { uriStr ->
-                viewModel.setBackgroundImageUri(uriStr)
-            },
-            onRequestSetDefault = {
-                viewModel.requestSetDefaultLauncher(context)
-            },
-            isMediaAccessGranted = viewModel.mediaSessionRepository.isNotificationAccessGranted.collectAsState().value,
-            onToggleShowMediaLiveTiles = { enabled ->
-                viewModel.toggleShowMediaLiveTiles(enabled)
-            },
-            onOpenMediaAccessSettings = {
-                viewModel.openNotificationAccessSettings(context)
-            },
-            onPinNowPlayingTile = {
-                viewModel.pinNowPlayingTile()
-                viewModel.closeSettings()
-            },
-            onClose = {
-                viewModel.closeSettings()
+        // Windows 10 Mobile-style Settings host
+        AnimatedVisibility(
+            visible = isSettingsOpen && currentSettingsDestination != null,
+            enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
+            exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            when (val dest = shownSettingsDestination) {
+                null -> Box(modifier = Modifier.fillMaxSize())
+                SettingsDestination.Root -> SettingsRootScreen(
+                    onOpenPivot = { pivot ->
+                        viewModel.openSettingsDestination(SettingsDestination.Launcher(pivot))
+                    },
+                    onOpenDestination = { destination ->
+                        viewModel.openSettingsDestination(destination)
+                    },
+                    onBack = { viewModel.navigateSettingsBack() }
+                )
+                is SettingsDestination.Launcher -> LauncherSettingsScreen(
+                    viewModel = viewModel,
+                    initialPivot = dest.pivot,
+                    scrollToSettingId = dest.scrollToSettingId,
+                    onBack = { viewModel.navigateSettingsBack() }
+                )
+                SettingsDestination.HiddenApps -> HiddenAppsScreen(
+                    vm = viewModel,
+                    onBack = { viewModel.navigateSettingsBack() },
+                    onAppClick = { pkg ->
+                        viewModel.openSettingsDestination(SettingsDestination.AppDetails(pkg))
+                    }
+                )
+                SettingsDestination.ManageApps -> ManageAppsScreen(
+                    vm = viewModel,
+                    onBack = { viewModel.navigateSettingsBack() },
+                    onAppClick = { pkg ->
+                        viewModel.openSettingsDestination(SettingsDestination.AppDetails(pkg))
+                    }
+                )
+                is SettingsDestination.AppDetails -> AppDetailsScreen(
+                    vm = viewModel,
+                    packageName = dest.packageName,
+                    onBack = { viewModel.navigateSettingsBack() }
+                )
             }
-        )
+        }
     }
 }

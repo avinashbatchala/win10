@@ -28,14 +28,18 @@ class LiveTileManager(
     private val context: Context,
     private val scope: CoroutineScope,
     private val mediaRepository: MediaSessionRepository? = null,
-    private val isMediaLiveTilesEnabled: () -> Boolean = { true }
+    private val isMediaLiveTilesEnabled: () -> Boolean = { true },
+    private val isMediaArtworkEnabled: () -> Boolean = { true },
+    private val shouldPauseWhenHidden: () -> Boolean = { true },
+    private val shouldPauseInBatterySaver: () -> Boolean = { false },
+    private val isBatterySaverOn: () -> Boolean = { false }
 ) {
     companion object {
         private const val TAG = "LiveTileManager"
     }
 
     val registry = LiveTileRegistry()
-    private val mediaProvider = mediaRepository?.let { MediaLiveTileProvider(it) }
+    private val mediaProvider = mediaRepository?.let { MediaLiveTileProvider(it, isMediaArtworkEnabled) }
 
     private val _tileStates = MutableStateFlow<Map<String, LiveTileState>>(emptyMap())
     val tileStates: StateFlow<Map<String, LiveTileState>> = _tileStates.asStateFlow()
@@ -224,9 +228,22 @@ class LiveTileManager(
         return if (state != null && state.isAvailable && state.faces.isNotEmpty()) state else null
     }
 
+    fun setAnimationsEnabled(enabled: Boolean) {
+        scheduler.setAnimationsEnabled(enabled)
+    }
+
+    fun setAnimationDelay(delayMs: Long) {
+        scheduler.setFlipInterval(delayMs)
+    }
+
+    fun isSchedulerRunning(): Boolean = scheduler.isRunning
+
     fun onStart() {
         registry.getAllProviders().forEach { it.onStart(context) }
-        scheduler.resume()
+        // Respect battery saver if the user asked us to.
+        if (!(isBatterySaverOn() && shouldPauseInBatterySaver())) {
+            scheduler.resume()
+        }
         recomputeMediaTiles()
         // Refresh stale tiles asynchronously
         scope.launch(Dispatchers.IO) {
@@ -243,7 +260,9 @@ class LiveTileManager(
     }
 
     fun onStop() {
-        scheduler.pause()
+        if (shouldPauseWhenHidden()) {
+            scheduler.pause()
+        }
         registry.getAllProviders().forEach { it.onStop(context) }
     }
 }

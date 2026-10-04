@@ -1,6 +1,7 @@
 package com.ab
 
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -9,10 +10,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.ab.model.LauncherOrientation
 import com.ab.ui.screens.MainLauncherScreen
 import com.ab.ui.theme.MetroTheme
 import com.ab.ui.viewmodel.LauncherViewModel
@@ -42,6 +45,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings by viewModel.settings.collectAsState()
             val accentColor = Color(settings.accentColor)
+
+            LaunchedEffect(settings.launcherOrientation) {
+                requestedOrientation = when (settings.launcherOrientation) {
+                    LauncherOrientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                    LauncherOrientation.FOLLOW_SYSTEM -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                }
+            }
 
             MetroTheme(accentColor = accentColor, darkTheme = settings.darkTheme) {
                 MainLauncherScreen(

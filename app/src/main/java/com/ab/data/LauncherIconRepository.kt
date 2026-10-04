@@ -66,8 +66,11 @@ class LauncherIconRepository(private val context: Context) {
             } catch (_: Exception) {}
         }
 
-        // Priority 1: Match with Metro semantic glyph overrides (unless overridden to ORIGINAL)
-        if (iconModeOverride != IconRenderMode.ANDROID_ORIGINAL) {
+        // Priority 1: Match with Metro semantic glyph overrides. Skipped when the user
+        // asked for the original icon or for monochrome-only appearance.
+        if (iconModeOverride != IconRenderMode.ANDROID_ORIGINAL &&
+            iconModeOverride != IconRenderMode.ANDROID_MONOCHROME
+        ) {
             val override = MetroIconOverrides.findOverride(packageName, activityName)
             if (override != null) {
                 return ResolvedLauncherIcon.VectorGlyph(

@@ -9,8 +9,13 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.ab.model.AppIconPreference
+import com.ab.model.BackgroundStyle
+import com.ab.model.LauncherOrientation
 import com.ab.model.LauncherSettings
+import com.ab.model.LiveTileAnimationFrequency
 import com.ab.model.TileModel
 import com.ab.model.TileSize
 import kotlinx.coroutines.flow.Flow
@@ -32,8 +37,23 @@ class LauncherPreferences(private val context: Context) {
         private val KEY_DARK_THEME = booleanPreferencesKey("dark_theme")
         private val KEY_TILE_TRANSPARENCY = floatPreferencesKey("tile_transparency")
         private val KEY_BACKGROUND_IMAGE_URI = stringPreferencesKey("background_image_uri")
+        private val KEY_BACKGROUND_STYLE = stringPreferencesKey("background_style")
         private val KEY_FIRST_RUN_DONE = booleanPreferencesKey("first_run_done")
         private val KEY_SHOW_MEDIA_LIVE_TILES = booleanPreferencesKey("show_media_live_tiles")
+        private val KEY_LIVE_TILES_ENABLED = booleanPreferencesKey("live_tiles_enabled")
+        private val KEY_ANIMATE_LIVE_TILES = booleanPreferencesKey("animate_live_tiles")
+        private val KEY_LIVE_TILE_FREQUENCY = stringPreferencesKey("live_tile_animation_frequency")
+        private val KEY_PAUSE_LIVE_TILES_HIDDEN = booleanPreferencesKey("pause_live_tiles_hidden")
+        private val KEY_PAUSE_LIVE_TILES_BATTERY = booleanPreferencesKey("pause_live_tiles_battery_saver")
+        private val KEY_DEFAULT_TILE_SIZE = stringPreferencesKey("default_tile_size")
+        private val KEY_SHOW_APP_NAMES = booleanPreferencesKey("show_app_names")
+        private val KEY_APP_ICON_PREFERENCE = stringPreferencesKey("app_icon_preference")
+        private val KEY_SHOW_JUMP_LIST = booleanPreferencesKey("show_alphabet_jump_list")
+        private val KEY_HIDDEN_APPS = stringSetPreferencesKey("hidden_apps")
+        private val KEY_MEDIA_SHOW_ARTWORK = booleanPreferencesKey("media_show_artwork")
+        private val KEY_MEDIA_SHOW_CONTROLS = booleanPreferencesKey("media_show_controls")
+        private val KEY_MEDIA_SHOW_PROGRESS = booleanPreferencesKey("media_show_progress")
+        private val KEY_LAUNCHER_ORIENTATION = stringPreferencesKey("launcher_orientation")
     }
 
     val pinnedTilesFlow: Flow<List<TileModel>?> = context.dataStore.data.map { prefs ->
@@ -48,7 +68,34 @@ class LauncherPreferences(private val context: Context) {
             showMoreTiles = prefs[KEY_SHOW_MORE_TILES] ?: false,
             tileTransparency = prefs[KEY_TILE_TRANSPARENCY] ?: 0.0f,
             backgroundImageUri = prefs[KEY_BACKGROUND_IMAGE_URI],
-            showMediaLiveTiles = prefs[KEY_SHOW_MEDIA_LIVE_TILES] ?: true
+            backgroundStyle = enumOrDefault(
+                prefs[KEY_BACKGROUND_STYLE],
+                BackgroundStyle.FULL_SCREEN
+            ),
+            showMediaLiveTiles = prefs[KEY_SHOW_MEDIA_LIVE_TILES] ?: true,
+            liveTilesEnabled = prefs[KEY_LIVE_TILES_ENABLED] ?: true,
+            animateLiveTiles = prefs[KEY_ANIMATE_LIVE_TILES] ?: true,
+            liveTileAnimationFrequency = enumOrDefault(
+                prefs[KEY_LIVE_TILE_FREQUENCY],
+                LiveTileAnimationFrequency.NORMAL
+            ),
+            pauseLiveTilesWhenHidden = prefs[KEY_PAUSE_LIVE_TILES_HIDDEN] ?: true,
+            pauseLiveTilesInBatterySaver = prefs[KEY_PAUSE_LIVE_TILES_BATTERY] ?: true,
+            defaultTileSize = enumOrDefault(prefs[KEY_DEFAULT_TILE_SIZE], TileSize.MEDIUM),
+            showAppNames = prefs[KEY_SHOW_APP_NAMES] ?: true,
+            appIconPreference = enumOrDefault(
+                prefs[KEY_APP_ICON_PREFERENCE],
+                AppIconPreference.AUTOMATIC
+            ),
+            showAlphabetJumpList = prefs[KEY_SHOW_JUMP_LIST] ?: true,
+            hiddenApps = prefs[KEY_HIDDEN_APPS] ?: emptySet(),
+            mediaShowArtwork = prefs[KEY_MEDIA_SHOW_ARTWORK] ?: true,
+            mediaShowControls = prefs[KEY_MEDIA_SHOW_CONTROLS] ?: true,
+            mediaShowProgress = prefs[KEY_MEDIA_SHOW_PROGRESS] ?: true,
+            launcherOrientation = enumOrDefault(
+                prefs[KEY_LAUNCHER_ORIENTATION],
+                LauncherOrientation.PORTRAIT
+            )
         )
     }
 
@@ -66,21 +113,15 @@ class LauncherPreferences(private val context: Context) {
     }
 
     suspend fun updateAccentColor(colorLong: Long) {
-        context.dataStore.edit { prefs ->
-            prefs[KEY_ACCENT_COLOR] = colorLong
-        }
+        context.dataStore.edit { prefs -> prefs[KEY_ACCENT_COLOR] = colorLong }
     }
 
     suspend fun updateTheme(dark: Boolean) {
-        context.dataStore.edit { prefs ->
-            prefs[KEY_DARK_THEME] = dark
-        }
+        context.dataStore.edit { prefs -> prefs[KEY_DARK_THEME] = dark }
     }
 
     suspend fun updateShowMoreTiles(enabled: Boolean) {
-        context.dataStore.edit { prefs ->
-            prefs[KEY_SHOW_MORE_TILES] = enabled
-        }
+        context.dataStore.edit { prefs -> prefs[KEY_SHOW_MORE_TILES] = enabled }
     }
 
     suspend fun updateTileTransparency(transparency: Float) {
@@ -91,17 +132,86 @@ class LauncherPreferences(private val context: Context) {
 
     suspend fun updateBackgroundImageUri(uriString: String?) {
         context.dataStore.edit { prefs ->
-            if (uriString != null) {
-                prefs[KEY_BACKGROUND_IMAGE_URI] = uriString
-            } else {
-                prefs.remove(KEY_BACKGROUND_IMAGE_URI)
-            }
+            if (uriString != null) prefs[KEY_BACKGROUND_IMAGE_URI] = uriString
+            else prefs.remove(KEY_BACKGROUND_IMAGE_URI)
         }
     }
 
+    suspend fun updateBackgroundStyle(style: BackgroundStyle) {
+        context.dataStore.edit { prefs -> prefs[KEY_BACKGROUND_STYLE] = style.name }
+    }
+
     suspend fun updateShowMediaLiveTiles(enabled: Boolean) {
-        context.dataStore.edit { prefs ->
-            prefs[KEY_SHOW_MEDIA_LIVE_TILES] = enabled
+        context.dataStore.edit { prefs -> prefs[KEY_SHOW_MEDIA_LIVE_TILES] = enabled }
+    }
+
+    suspend fun updateLiveTilesEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_LIVE_TILES_ENABLED] = enabled }
+    }
+
+    suspend fun updateAnimateLiveTiles(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_ANIMATE_LIVE_TILES] = enabled }
+    }
+
+    suspend fun updateLiveTileAnimationFrequency(frequency: LiveTileAnimationFrequency) {
+        context.dataStore.edit { prefs -> prefs[KEY_LIVE_TILE_FREQUENCY] = frequency.name }
+    }
+
+    suspend fun updatePauseLiveTilesWhenHidden(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_PAUSE_LIVE_TILES_HIDDEN] = enabled }
+    }
+
+    suspend fun updatePauseLiveTilesInBatterySaver(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_PAUSE_LIVE_TILES_BATTERY] = enabled }
+    }
+
+    suspend fun updateDefaultTileSize(size: TileSize) {
+        context.dataStore.edit { prefs -> prefs[KEY_DEFAULT_TILE_SIZE] = size.name }
+    }
+
+    suspend fun updateShowAppNames(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_SHOW_APP_NAMES] = enabled }
+    }
+
+    suspend fun updateAppIconPreference(preference: AppIconPreference) {
+        context.dataStore.edit { prefs -> prefs[KEY_APP_ICON_PREFERENCE] = preference.name }
+    }
+
+    suspend fun updateShowAlphabetJumpList(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_SHOW_JUMP_LIST] = enabled }
+    }
+
+    suspend fun updateHiddenApps(packages: Set<String>) {
+        context.dataStore.edit { prefs -> prefs[KEY_HIDDEN_APPS] = packages }
+    }
+
+    suspend fun updateMediaShowArtwork(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_MEDIA_SHOW_ARTWORK] = enabled }
+    }
+
+    suspend fun updateMediaShowControls(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_MEDIA_SHOW_CONTROLS] = enabled }
+    }
+
+    suspend fun updateMediaShowProgress(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_MEDIA_SHOW_PROGRESS] = enabled }
+    }
+
+    suspend fun updateLauncherOrientation(orientation: LauncherOrientation) {
+        context.dataStore.edit { prefs -> prefs[KEY_LAUNCHER_ORIENTATION] = orientation.name }
+    }
+
+    /** Clears every persisted launcher preference, restoring factory defaults. */
+    suspend fun resetAllSettings() {
+        context.dataStore.edit { prefs -> prefs.clear() }
+    }
+
+    private inline fun <reified T : Enum<T>> enumOrDefault(raw: String?, default: T): T {
+        if (raw == null) return default
+        return try {
+            enumValueOf<T>(raw)
+        } catch (_: Exception) {
+            default
         }
     }
 

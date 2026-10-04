@@ -204,7 +204,7 @@ fun AppsScreen(
                                     )
                                     .size(MetroDimensions.appListHeaderBoxSize)
                                     .background(accentColor, RectangleShape)
-                                    .clickable {
+                                    .clickable(enabled = settings.showAlphabetJumpList) {
                                         viewModel.openJumpList()
                                     },
                                 contentAlignment = Alignment.Center
@@ -250,21 +250,23 @@ fun AppsScreen(
         }
 
         // Jump List Overlay
-        AlphabetJumpList(
-            isOpen = isJumpListOpen,
-            activeLetters = activeLetters,
-            accentColor = accentColor,
-            onLetterSelected = { selectedLetter ->
-                val targetIndex = letterIndexMap[selectedLetter]
-                if (targetIndex != null) {
-                    scope.launch {
-                        listState.scrollToItem(targetIndex)
+        if (settings.showAlphabetJumpList) {
+            AlphabetJumpList(
+                isOpen = isJumpListOpen,
+                activeLetters = activeLetters,
+                accentColor = accentColor,
+                onLetterSelected = { selectedLetter ->
+                    val targetIndex = letterIndexMap[selectedLetter]
+                    if (targetIndex != null) {
+                        scope.launch {
+                            listState.scrollToItem(targetIndex)
+                        }
                     }
+                },
+                onDismiss = {
+                    viewModel.closeJumpList()
                 }
-            },
-            onDismiss = {
-                viewModel.closeJumpList()
-            }
-        )
+            )
+        }
     }
 }

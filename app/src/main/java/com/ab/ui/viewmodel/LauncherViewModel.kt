@@ -11,6 +11,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
 import android.util.Log
@@ -20,12 +21,22 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.ab.BuildConfig
 import com.ab.data.InstalledAppRepository
 import com.ab.data.LauncherPreferences
+import com.ab.model.AppIconPreference
 import com.ab.model.AppInfo
+import com.ab.model.BackgroundStyle
+import com.ab.model.IconRenderMode
+import com.ab.model.LauncherOrientation
 import com.ab.model.LauncherSettings
+import com.ab.model.LiveTileAnimationFrequency
 import com.ab.model.TileModel
 import com.ab.model.TileSize
+import com.ab.ui.settings.SettingsDestination
+import com.ab.ui.settings.SettingsPivot
+import com.ab.ui.settings.SystemTileDef
+import com.ab.ui.settings.SystemTiles
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -48,6 +59,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private val repository = InstalledAppRepository(application, viewModelScope)
     private val preferences = LauncherPreferences(application)
+
+    // Last icon mode pushed to the repository, so we only reload when it actually changes.
+    private var appliedIconMode: IconRenderMode? = null
 
     val installedApps: StateFlow<List<AppInfo>> = repository.installedApps
     val isAppsLoaded: StateFlow<Boolean> = repository.isLoaded
@@ -73,7 +87,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         context = application,
         scope = viewModelScope,
         mediaRepository = mediaSessionRepository,
-        isMediaLiveTilesEnabled = { _settings.value.showMediaLiveTiles }
+        isMediaLiveTilesEnabled = { _settings.value.showMediaLiveTiles },
+        isMediaArtworkEnabled = { _settings.value.mediaShowArtwork },
+        shouldPauseWhenHidden = { _settings.value.pauseLiveTilesWhenHidden },
+        shouldPauseInBatterySaver = { _settings.value.pauseLiveTilesInBatterySaver },
+        isBatterySaverOn = {
+            val pm = application.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            pm?.isPowerSaveMode == true
+        }
     )
     val liveTileStates: StateFlow<Map<String, com.ab.livetile.model.LiveTileState>> = liveTileManager.tileStates
 
@@ -108,18 +129,24 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val _isSettingsOpen = MutableStateFlow(false)
     val isSettingsOpen: StateFlow<Boolean> = _isSettingsOpen.asStateFlow()
 
+    // Internal settings navigation stack (Root -> Launcher(pivot) -> nested pages).
+    private val _settingsBackStack = MutableStateFlow<List<SettingsDestination>>(emptyList())
+    val settingsBackStack: StateFlow<List<SettingsDestination>> = _settingsBackStack.asStateFlow()
+
     private val _requestScrollToStart = MutableStateFlow(false)
     val requestScrollToStart: StateFlow<Boolean> = _requestScrollToStart.asStateFlow()
 
     val filteredApps: StateFlow<List<AppInfo>> = combine(
         installedApps,
-        searchQuery
-    ) { apps, query ->
+        searchQuery,
+        settings
+    ) { apps, query, currentSettings ->
+        val visible = apps.filterNot { currentSettings.hiddenApps.contains(it.packageName) }
         if (query.isBlank()) {
-            apps
+            visible
         } else {
             val q = query.trim().lowercase()
-            apps.filter { it.label.lowercase().contains(q) }
+            visible.filter { it.label.lowercase().contains(q) }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -135,6 +162,18 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 _settings.value = newSettings.copy(
                     isDefaultLauncher = checkIsDefaultLauncher()
                 )
+                // Keep the Live Tile engine in sync with the persisted preferences.
+                liveTileManager.setAnimationsEnabled(
+                    newSettings.liveTilesEnabled && newSettings.animateLiveTiles
+                )
+                liveTileManager.setAnimationDelay(newSettings.liveTileAnimationFrequency.delayMs)
+                // Apply the persisted icon preference to the app repository (source of truth).
+                val iconMode = newSettings.appIconPreference.toRenderMode()
+                if (iconMode != appliedIconMode) {
+                    appliedIconMode = iconMode
+                    repository.setIconModeOverride(iconMode)
+                    repository.reloadApps()
+                }
                 if (newSettings.backgroundImageUri != prevUri || (_wallpaperBitmap.value == null && newSettings.backgroundImageUri != null)) {
                     loadWallpaperAsync(newSettings.backgroundImageUri)
                 }
@@ -273,8 +312,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
      */
     fun handleInternalBack(): Boolean {
         if (_isSettingsOpen.value) {
-            Log.d(TAG_BACK, "Back consumed: closing settings sheet.")
-            _isSettingsOpen.value = false
+            Log.d(TAG_BACK, "Back consumed: navigating back inside Settings.")
+            navigateSettingsBack()
             return true
         }
         if (_isEditMode.value) {
@@ -451,7 +490,8 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         iconModeOverride: com.ab.model.IconRenderMode? = null,
         customIconId: String? = null
     ): com.ab.model.ResolvedLauncherIcon {
-        return repository.resolveLauncherIcon(packageName, activityName, targetSizePx, iconModeOverride, customIconId)
+        val mode = iconModeOverride ?: _settings.value.appIconPreference.toRenderMode()
+        return repository.resolveLauncherIcon(packageName, activityName, targetSizePx, mode, customIconId)
     }
 
     fun launchApp(context: Context, packageName: String, activityName: String? = null, label: String = "") {
@@ -611,17 +651,18 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         _dragOffset.value = Offset.Zero
     }
 
-    fun pinApp(app: AppInfo, size: TileSize = TileSize.MEDIUM) {
+    fun pinApp(app: AppInfo, size: TileSize? = null) {
+        val actualSize = size ?: _settings.value.defaultTileSize
         val current = _pinnedTiles.value
         val totalCols = if (_settings.value.showMoreTiles) 8 else 6
-        val pos = GridManager.findFirstAvailablePosition(size.cols, size.rows, current, totalCols)
+        val pos = GridManager.findFirstAvailablePosition(actualSize.cols, actualSize.rows, current, totalCols)
         val maxOrder = (current.maxOfOrNull { it.order } ?: 0) + 1
         val newTile = TileModel(
             id = UUID.randomUUID().toString(),
             packageName = app.packageName,
             activityName = app.activityName,
             label = app.label,
-            size = size,
+            size = actualSize,
             col = pos.first,
             row = pos.second,
             order = maxOrder,
@@ -689,15 +730,251 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         _isJumpListOpen.value = false
     }
 
+    // ---------------------------------------------------------------------
+    // Settings navigation
+    // ---------------------------------------------------------------------
+
     fun openSettings() {
+        _settingsBackStack.value = listOf(SettingsDestination.Root)
         _isSettingsOpen.value = true
+    }
+
+    fun openLauncherPivot(pivot: SettingsPivot, settingId: String? = null) {
+        _settingsBackStack.value = listOf(
+            SettingsDestination.Root,
+            SettingsDestination.Launcher(pivot, settingId)
+        )
+        _isSettingsOpen.value = true
+    }
+
+    fun openSettingsDestination(destination: SettingsDestination) {
+        val stack = _settingsBackStack.value
+        _settingsBackStack.value = if (stack.isEmpty()) {
+            listOf(SettingsDestination.Root, destination)
+        } else {
+            stack + destination
+        }
+        _isSettingsOpen.value = true
+    }
+
+    /** Returns true if Back was consumed; closes Settings when already at the root page. */
+    fun navigateSettingsBack(): Boolean {
+        val stack = _settingsBackStack.value
+        if (stack.size > 1) {
+            _settingsBackStack.value = stack.dropLast(1)
+            return true
+        }
+        closeSettings()
+        return true
     }
 
     fun closeSettings() {
         _isSettingsOpen.value = false
+        _settingsBackStack.value = emptyList()
+    }
+
+    // ---------------------------------------------------------------------
+    // Start / personalization setters
+    // ---------------------------------------------------------------------
+
+    fun setBackgroundStyle(style: BackgroundStyle) {
+        _settings.value = _settings.value.copy(backgroundStyle = style)
+        viewModelScope.launch { preferences.updateBackgroundStyle(style) }
+    }
+
+    fun setShowMoreTiles(enabled: Boolean) {
+        if (enabled != _settings.value.showMoreTiles) {
+            toggleShowMoreTiles()
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Live Tiles
+    // ---------------------------------------------------------------------
+
+    fun setLiveTilesEnabled(enabled: Boolean) {
+        _settings.value = _settings.value.copy(liveTilesEnabled = enabled)
+        liveTileManager.setAnimationsEnabled(enabled && _settings.value.animateLiveTiles)
+        viewModelScope.launch { preferences.updateLiveTilesEnabled(enabled) }
+    }
+
+    fun setAnimateLiveTiles(enabled: Boolean) {
+        _settings.value = _settings.value.copy(animateLiveTiles = enabled)
+        liveTileManager.setAnimationsEnabled(_settings.value.liveTilesEnabled && enabled)
+        viewModelScope.launch { preferences.updateAnimateLiveTiles(enabled) }
+    }
+
+    fun setLiveTileAnimationFrequency(frequency: LiveTileAnimationFrequency) {
+        _settings.value = _settings.value.copy(liveTileAnimationFrequency = frequency)
+        liveTileManager.setAnimationDelay(frequency.delayMs)
+        viewModelScope.launch { preferences.updateLiveTileAnimationFrequency(frequency) }
+    }
+
+    fun setPauseLiveTilesWhenHidden(enabled: Boolean) {
+        _settings.value = _settings.value.copy(pauseLiveTilesWhenHidden = enabled)
+        viewModelScope.launch { preferences.updatePauseLiveTilesWhenHidden(enabled) }
+    }
+
+    fun setPauseLiveTilesInBatterySaver(enabled: Boolean) {
+        _settings.value = _settings.value.copy(pauseLiveTilesInBatterySaver = enabled)
+        viewModelScope.launch { preferences.updatePauseLiveTilesInBatterySaver(enabled) }
+    }
+
+    fun setDefaultTileSize(size: TileSize) {
+        _settings.value = _settings.value.copy(defaultTileSize = size)
+        viewModelScope.launch { preferences.updateDefaultTileSize(size) }
+    }
+
+    fun setShowAppNames(enabled: Boolean) {
+        _settings.value = _settings.value.copy(showAppNames = enabled)
+        viewModelScope.launch { preferences.updateShowAppNames(enabled) }
+    }
+
+    // ---------------------------------------------------------------------
+    // Apps
+    // ---------------------------------------------------------------------
+
+    fun setShowAlphabetJumpList(enabled: Boolean) {
+        _settings.value = _settings.value.copy(showAlphabetJumpList = enabled)
+        viewModelScope.launch { preferences.updateShowAlphabetJumpList(enabled) }
+    }
+
+    fun setAppIconPreference(preference: AppIconPreference) {
+        _settings.value = _settings.value.copy(appIconPreference = preference)
+        val mode = preference.toRenderMode()
+        if (mode != appliedIconMode) {
+            appliedIconMode = mode
+            repository.setIconModeOverride(mode)
+            repository.reloadApps()
+        }
+        viewModelScope.launch { preferences.updateAppIconPreference(preference) }
+    }
+
+    fun setAppHidden(packageName: String, hidden: Boolean) {
+        val current = _settings.value.hiddenApps
+        val updated = if (hidden) current + packageName else current - packageName
+        _settings.value = _settings.value.copy(hiddenApps = updated)
+        viewModelScope.launch { preferences.updateHiddenApps(updated) }
+    }
+
+    // ---------------------------------------------------------------------
+    // Media
+    // ---------------------------------------------------------------------
+
+    fun setMediaShowArtwork(enabled: Boolean) {
+        _settings.value = _settings.value.copy(mediaShowArtwork = enabled)
+        liveTileManager.recomputeMediaTiles()
+        viewModelScope.launch { preferences.updateMediaShowArtwork(enabled) }
+    }
+
+    fun setMediaShowControls(enabled: Boolean) {
+        _settings.value = _settings.value.copy(mediaShowControls = enabled)
+        viewModelScope.launch { preferences.updateMediaShowControls(enabled) }
+    }
+
+    fun setMediaShowProgress(enabled: Boolean) {
+        _settings.value = _settings.value.copy(mediaShowProgress = enabled)
+        viewModelScope.launch { preferences.updateMediaShowProgress(enabled) }
+    }
+
+    // ---------------------------------------------------------------------
+    // System
+    // ---------------------------------------------------------------------
+
+    fun setLauncherOrientation(orientation: LauncherOrientation) {
+        _settings.value = _settings.value.copy(launcherOrientation = orientation)
+        viewModelScope.launch { preferences.updateLauncherOrientation(orientation) }
+    }
+
+    // ---------------------------------------------------------------------
+    // Launcher-owned system tiles
+    // ---------------------------------------------------------------------
+
+    fun isSystemTilePinned(packageName: String): Boolean =
+        _pinnedTiles.value.any { it.packageName == packageName }
+
+    fun pinSystemTile(def: SystemTileDef) {
+        if (isSystemTilePinned(def.packageName)) return
+        val currentTiles = _pinnedTiles.value
+        val totalCols = if (_settings.value.showMoreTiles) 8 else 6
+        val (col, row) = GridManager.findFirstAvailablePosition(
+            cols = def.defaultSize.cols,
+            rows = def.defaultSize.rows,
+            tiles = currentTiles,
+            totalColumns = totalCols
+        )
+        val newTile = TileModel(
+            id = "system_${def.packageName}_${System.currentTimeMillis()}",
+            packageName = def.packageName,
+            label = def.label,
+            size = def.defaultSize,
+            col = col,
+            row = row,
+            order = (currentTiles.maxOfOrNull { it.order } ?: 0) + 1,
+            isAvailable = true
+        )
+        val updated = currentTiles + newTile
+        _pinnedTiles.value = updated
+        saveTiles(updated)
+    }
+
+    fun unpinSystemTile(packageName: String) {
+        val current = _pinnedTiles.value
+        val updated = current.filter { it.packageName != packageName }
+        if (updated == current) return
+        val totalCols = if (_settings.value.showMoreTiles) 8 else 6
+        val compacted = GridManager.compactGrid(updated, totalCols)
+        _pinnedTiles.value = compacted
+        saveTiles(compacted)
+    }
+
+    // ---------------------------------------------------------------------
+    // Reset
+    // ---------------------------------------------------------------------
+
+    fun resetStartLayout() {
+        viewModelScope.launch {
+            val tiles = createDefaultLayout(repository.installedApps.value)
+            _pinnedTiles.value = tiles
+            preferences.savePinnedTiles(tiles)
+        }
+    }
+
+    fun resetAllLauncherSettings() {
+        viewModelScope.launch {
+            preferences.resetAllSettings()
+            val tiles = createDefaultLayout(repository.installedApps.value)
+            _pinnedTiles.value = tiles
+            preferences.savePinnedTiles(tiles)
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Diagnostics
+    // ---------------------------------------------------------------------
+
+    fun packageName(): String = getApplication<Application>().packageName
+
+    fun launcherVersionName(): String = BuildConfig.VERSION_NAME
+
+    fun launcherVersionCode(): Long = BuildConfig.VERSION_CODE.toLong()
+
+    fun androidVersion(): String = Build.VERSION.RELEASE ?: ""
+
+    fun deviceModel(): String = "${Build.MANUFACTURER} ${Build.MODEL}"
+
+    fun activeLiveTileProviderCount(): Int = liveTileManager.registry.getAllProviders().size
+
+    fun isLiveTileSchedulerRunning(): Boolean = liveTileManager.isSchedulerRunning()
+
+    private fun AppIconPreference.toRenderMode(): IconRenderMode? = when (this) {
+        AppIconPreference.AUTOMATIC -> null
+        AppIconPreference.ORIGINAL_ICON -> IconRenderMode.ANDROID_ORIGINAL
+        AppIconPreference.MONOCHROME -> IconRenderMode.ANDROID_MONOCHROME
     }
 
     fun getLiveTileState(packageName: String, activityName: String? = null): com.ab.livetile.model.LiveTileState? {
+        if (!_settings.value.liveTilesEnabled) return null
         return liveTileManager.getLiveTileState(packageName, activityName)
     }
 
@@ -714,32 +991,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun pinNowPlayingTile() {
-        val currentTiles = _pinnedTiles.value
-        val alreadyPinned = currentTiles.any { it.packageName == com.ab.livetile.providers.MediaLiveTileProvider.NOW_PLAYING_PACKAGE }
-        if (alreadyPinned) return
-
-        val totalCols = if (_settings.value.showMoreTiles) 8 else 6
-        val (col, row) = GridManager.findFirstAvailablePosition(
-            cols = TileSize.WIDE.cols,
-            rows = TileSize.WIDE.rows,
-            tiles = currentTiles,
-            totalColumns = totalCols
-        )
-
-        val newTile = TileModel(
-            id = "now_playing_${System.currentTimeMillis()}",
-            packageName = com.ab.livetile.providers.MediaLiveTileProvider.NOW_PLAYING_PACKAGE,
-            label = "Now Playing",
-            size = TileSize.WIDE,
-            col = col,
-            row = row,
-            order = currentTiles.size,
-            isAvailable = true
-        )
-
-        val updated = currentTiles + newTile
-        _pinnedTiles.value = updated
-        saveTiles(updated)
+        val def = SystemTiles.ALL.firstOrNull {
+            it.packageName == SystemTiles.NOW_PLAYING_PACKAGE
+        } ?: return
+        pinSystemTile(def)
     }
 
     fun onStart() {

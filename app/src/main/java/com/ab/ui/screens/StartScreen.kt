@@ -114,6 +114,9 @@ fun StartScreen(
                     getLauncherIcon = { pkg, act -> viewModel.resolveLauncherIcon(pkg, act) },
                     getLiveTileState = { pkg, act -> viewModel.getLiveTileState(pkg, act) },
                     mediaActionDispatcher = viewModel.mediaActionDispatcher,
+                    showAppNames = settings.showAppNames,
+                    mediaShowControls = settings.mediaShowControls,
+                    mediaShowProgress = settings.mediaShowProgress,
                     onTileClick = { tile ->
                         if (isEditMode) {
                             viewModel.onTileClickedInEdit(tile.id)

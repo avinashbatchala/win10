@@ -52,6 +52,9 @@ fun StartTile(
     tileTransparency: Float = 0.0f,
     liveTileState: LiveTileState? = null,
     mediaActionDispatcher: com.ab.media.MediaActionDispatcher? = null,
+    showAppNames: Boolean = true,
+    mediaShowControls: Boolean = true,
+    mediaShowProgress: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     var isPressed by remember { mutableStateOf(false) }
@@ -115,7 +118,9 @@ fun StartTile(
                 liveState = liveTileState,
                 tileSize = tile.size,
                 defaultLabel = displayLabel,
-                dispatcher = mediaActionDispatcher
+                dispatcher = mediaActionDispatcher,
+                mediaShowControls = mediaShowControls,
+                mediaShowProgress = mediaShowProgress
             )
         } else {
             // Static Tile Fallback: Always displays pure icon + label cleanly
@@ -157,13 +162,15 @@ fun StartTile(
                             }
                         }
 
-                        Text(
-                            text = displayLabel,
-                            style = MetroTypography.tileLabel,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.align(Alignment.BottomStart)
-                        )
+                        if (showAppNames) {
+                            Text(
+                                text = displayLabel,
+                                style = MetroTypography.tileLabel,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.align(Alignment.BottomStart)
+                            )
+                        }
                     }
                 }
                 TileSize.WIDE -> {
@@ -188,13 +195,15 @@ fun StartTile(
                             }
                         }
 
-                        Text(
-                            text = displayLabel,
-                            style = MetroTypography.tileLabel,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.align(Alignment.BottomStart)
-                        )
+                        if (showAppNames) {
+                            Text(
+                                text = displayLabel,
+                                style = MetroTypography.tileLabel,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.align(Alignment.BottomStart)
+                            )
+                        }
                     }
                 }
                 TileSize.LARGE -> {
@@ -219,13 +228,15 @@ fun StartTile(
                             }
                         }
 
-                        Text(
-                            text = displayLabel,
-                            style = MetroTypography.tileLabelLarge,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.align(Alignment.BottomStart)
-                        )
+                        if (showAppNames) {
+                            Text(
+                                text = displayLabel,
+                                style = MetroTypography.tileLabelLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.align(Alignment.BottomStart)
+                            )
+                        }
                     }
                 }
             }
