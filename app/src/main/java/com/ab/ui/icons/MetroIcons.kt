@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
@@ -1069,4 +1070,120 @@ object MetroIcons {
             }
         }.build()
     }
+
+    val WeatherSun: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "MetroWeatherSun",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(
+                fill = null,
+                stroke = SolidColor(Color.White),
+                strokeLineWidth = 2f
+            ) {
+                moveTo(12f, 7.5f)
+                arcTo(4.5f, 4.5f, 0f, true, true, 11.99f, 7.5f)
+            }
+            path(
+                fill = null,
+                stroke = SolidColor(Color.White),
+                strokeLineWidth = 1.8f,
+                strokeLineCap = StrokeCap.Square
+            ) {
+                moveTo(12f, 2.5f); lineTo(12f, 4.5f)
+                moveTo(12f, 19.5f); lineTo(12f, 21.5f)
+                moveTo(2.5f, 12f); lineTo(4.5f, 12f)
+                moveTo(19.5f, 12f); lineTo(21.5f, 12f)
+                moveTo(5.2f, 5.2f); lineTo(6.6f, 6.6f)
+                moveTo(17.4f, 17.4f); lineTo(18.8f, 18.8f)
+                moveTo(5.2f, 18.8f); lineTo(6.6f, 17.4f)
+                moveTo(17.4f, 6.6f); lineTo(18.8f, 5.2f)
+            }
+        }.build()
+    }
+
+    val WeatherCloud: ImageVector by lazy {
+        weatherIcon("MetroWeatherCloud") { path(fill = SolidColor(Color.White)) { addCloud() } }
+    }
+
+    val WeatherRain: ImageVector by lazy {
+        weatherIcon("MetroWeatherRain") {
+            path(fill = SolidColor(Color.White)) { addCloud() }
+            path(
+                fill = null,
+                stroke = SolidColor(Color.White),
+                strokeLineWidth = 1.8f,
+                strokeLineCap = StrokeCap.Square
+            ) {
+                moveTo(8f, 20.5f); lineTo(7f, 23f)
+                moveTo(12.5f, 20.5f); lineTo(11.5f, 23f)
+                moveTo(17f, 20.5f); lineTo(16f, 23f)
+            }
+        }
+    }
+
+    val WeatherSnow: ImageVector by lazy {
+        weatherIcon("MetroWeatherSnow") {
+            path(fill = SolidColor(Color.White)) { addCloud() }
+            path(fill = SolidColor(Color.White)) {
+                moveTo(7f, 21f); lineTo(8.5f, 21f); lineTo(8.5f, 22.5f); lineTo(7f, 22.5f); close()
+                moveTo(11.5f, 21f); lineTo(13f, 21f); lineTo(13f, 22.5f); lineTo(11.5f, 22.5f); close()
+                moveTo(16f, 21f); lineTo(17.5f, 21f); lineTo(17.5f, 22.5f); lineTo(16f, 22.5f); close()
+            }
+        }
+    }
+
+    val WeatherStorm: ImageVector by lazy {
+        weatherIcon("MetroWeatherStorm") {
+            path(fill = SolidColor(Color.White)) { addCloud() }
+            path(fill = SolidColor(Color.White)) {
+                moveTo(13f, 18f)
+                lineTo(10.5f, 21f)
+                lineTo(12f, 21f)
+                lineTo(11f, 23.5f)
+                lineTo(14f, 20f)
+                lineTo(12.2f, 20f)
+                close()
+            }
+        }
+    }
+
+    val WeatherFog: ImageVector by lazy {
+        weatherIcon("MetroWeatherFog") {
+            path(fill = SolidColor(Color.White)) { addCloud() }
+            path(
+                fill = null,
+                stroke = SolidColor(Color.White),
+                strokeLineWidth = 1.8f,
+                strokeLineCap = StrokeCap.Square
+            ) {
+                moveTo(6f, 21f); lineTo(18f, 21f)
+                moveTo(8f, 23.2f); lineTo(16f, 23.2f)
+            }
+        }
+    }
 }
+
+private fun PathBuilder.addCloud() {
+    moveTo(19.35f, 10.04f)
+    curveTo(18.67f, 6.59f, 15.64f, 4f, 12f, 4f)
+    curveTo(9.11f, 4f, 6.6f, 5.64f, 5.35f, 8.04f)
+    curveTo(2.34f, 8.36f, 0f, 10.91f, 0f, 14f)
+    curveTo(0f, 17.31f, 2.69f, 20f, 6f, 20f)
+    lineTo(19f, 20f)
+    curveTo(21.76f, 20f, 24f, 17.76f, 24f, 15f)
+    curveTo(24f, 12.36f, 21.95f, 10.22f, 19.35f, 10.04f)
+    close()
+}
+
+private inline fun weatherIcon(name: String, block: ImageVector.Builder.() -> Unit): ImageVector =
+    ImageVector.Builder(
+        name = name,
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply(block).build()

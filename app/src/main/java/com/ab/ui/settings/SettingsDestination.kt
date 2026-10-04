@@ -96,6 +96,7 @@ object SystemTiles {
     const val CLOCK_PACKAGE = "livetile.demo.clock"
     const val DATE_PACKAGE = "livetile.demo.date"
     const val BATTERY_PACKAGE = "livetile.demo.battery"
+    const val WEATHER_PACKAGE = "livetile.demo.weather"
 
     val ALL: List<SystemTileDef> = listOf(
         SystemTileDef(
@@ -125,6 +126,13 @@ object SystemTiles {
             description = "Charge level and status",
             icon = MetroIcons.Battery,
             defaultSize = TileSize.SMALL
+        ),
+        SystemTileDef(
+            packageName = WEATHER_PACKAGE,
+            label = "Weather",
+            description = "Current conditions for your area",
+            icon = MetroIcons.WeatherCloud,
+            defaultSize = TileSize.MEDIUM
         )
     )
 }

@@ -4,6 +4,7 @@ import com.ab.livetile.api.LiveTileProvider
 import com.ab.livetile.providers.BatteryLiveTileProvider
 import com.ab.livetile.providers.ClockLiveTileProvider
 import com.ab.livetile.providers.DateLiveTileProvider
+import com.ab.livetile.providers.WeatherLiveTileProvider
 import java.util.concurrent.CopyOnWriteArrayList
 
 class LiveTileRegistry {
@@ -15,6 +16,7 @@ class LiveTileRegistry {
         registerProvider(ClockLiveTileProvider())
         registerProvider(DateLiveTileProvider())
         registerProvider(BatteryLiveTileProvider())
+        registerProvider(WeatherLiveTileProvider())
     }
 
     fun registerProvider(provider: LiveTileProvider) {
