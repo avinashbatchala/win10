@@ -65,7 +65,9 @@ fun LiveTileRenderer(
     var displayedIndex by remember { mutableIntStateOf(targetIndex) }
     val rotationX = remember { Animatable(0f) }
 
-    LaunchedEffect(targetIndex) {
+    // Key on the face content as well as the index: single-face tiles (media, clock,
+    // battery) update their content while keeping index 0, and would otherwise stay stale.
+    LaunchedEffect(targetIndex, activeFace) {
         if (targetIndex != displayedIndex && liveState.faces.size > 1) {
             // First half of flip: rotate out from 0 to 90 degrees
             rotationX.animateTo(
