@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -27,10 +26,8 @@ import com.ab.model.TileModel
 import com.ab.ui.components.StartGrid
 import com.ab.ui.icons.MetroIcons
 import com.ab.ui.theme.LocalMetroBackground
-import com.ab.ui.theme.LocalMetroForeground
 import com.ab.ui.theme.MetroColors
 import com.ab.ui.theme.MetroDimensions
-import com.ab.ui.theme.MetroTypography
 import com.ab.ui.viewmodel.LauncherViewModel
 
 @Composable
@@ -45,8 +42,9 @@ fun StartScreen(
 ) {
     val accentColor = Color(settings.accentColor)
     val wallpaperBitmap by viewModel.wallpaperBitmap.collectAsState()
+    // Reactive live tile state so song changes / face flips update without navigation.
+    val liveTileStates by viewModel.visibleLiveTileStates.collectAsState()
     val bgColor = LocalMetroBackground.current
-    val fgColor = if (wallpaperBitmap != null) Color.White else LocalMetroForeground.current
 
     Box(
         modifier = modifier
@@ -69,34 +67,8 @@ fun StartScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
         ) {
-            // Top bar with Start title and Personalization trigger
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = MetroDimensions.startHorizontalInset, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Start",
-                    style = MetroTypography.startTitle.copy(color = fgColor),
-                    modifier = Modifier.weight(1f)
-                )
-
-                // Personalization Settings icon with Metro glyph
-                IconButton(
-                    onClick = { viewModel.openSettings() },
-                    modifier = Modifier.testTag("start_settings_button")
-                ) {
-                    Icon(
-                        imageVector = MetroIcons.Settings,
-                        contentDescription = "Personalization Settings",
-                        tint = if (wallpaperBitmap != null) Color.White.copy(alpha = 0.8f) else MetroColors.TextDim,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            }
-
-            // Start Grid containing tiles
+            // Start Grid containing tiles. Settings is reached by long-pressing empty space.
+            // (The old top bar with the "Start" title and gear icon was removed.)
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -112,7 +84,7 @@ fun StartScreen(
                     draggedTileId = viewModel.draggedTileId.collectAsState().value,
                     dragOffset = viewModel.dragOffset.collectAsState().value,
                     getLauncherIcon = { pkg, act -> viewModel.resolveLauncherIcon(pkg, act) },
-                    getLiveTileState = { pkg, act -> viewModel.getLiveTileState(pkg, act) },
+                    liveTileStates = liveTileStates,
                     mediaActionDispatcher = viewModel.mediaActionDispatcher,
                     showAppNames = settings.showAppNames,
                     mediaShowControls = settings.mediaShowControls,

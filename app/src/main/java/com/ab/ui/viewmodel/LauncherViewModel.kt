@@ -98,6 +98,20 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     )
     val liveTileStates: StateFlow<Map<String, com.ab.livetile.model.LiveTileState>> = liveTileManager.tileStates
 
+    /**
+     * Live tile states exposed to the UI, gated by the global Live Tiles preference.
+     * Observed by Start so tiles update reactively (media changes, face flips) as soon as
+     * the underlying state changes, instead of only on the next recomposition.
+     */
+    val visibleLiveTileStates: StateFlow<Map<String, com.ab.livetile.model.LiveTileState>> =
+        combine(liveTileManager.tileStates, settings) { states, currentSettings ->
+            if (currentSettings.liveTilesEnabled) states else emptyMap()
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            emptyMap()
+        )
+
     // Wallpaper bitmap loaded asynchronously
     private val _wallpaperBitmap = MutableStateFlow<ImageBitmap?>(null)
     val wallpaperBitmap: StateFlow<ImageBitmap?> = _wallpaperBitmap.asStateFlow()

@@ -54,7 +54,7 @@ fun StartGrid(
     draggedTileId: String?,
     dragOffset: Offset,
     getLauncherIcon: (packageName: String, activityName: String?) -> com.ab.model.ResolvedLauncherIcon,
-    getLiveTileState: (packageName: String, activityName: String?) -> com.ab.livetile.model.LiveTileState?,
+    liveTileStates: Map<String, com.ab.livetile.model.LiveTileState> = emptyMap(),
     mediaActionDispatcher: com.ab.media.MediaActionDispatcher? = null,
     showAppNames: Boolean = true,
     mediaShowControls: Boolean = true,
@@ -152,7 +152,8 @@ fun StartGrid(
                 val isSelected = isEditMode && selectedTileId == tile.id
                 val isDragging = draggedTileId == tile.id
                 val icon = getLauncherIcon(tile.packageName, tile.activityName)
-                val liveState = getLiveTileState(tile.packageName, tile.activityName)
+                val liveState = (liveTileStates[tile.componentKey] ?: liveTileStates[tile.packageName])
+                    ?.takeIf { it.isAvailable && it.faces.isNotEmpty() }
 
                 val tileWidth = (cellWidth * tile.effectiveCols) + (gap * (tile.effectiveCols - 1))
                 val tileHeight = (cellWidth * tile.effectiveRows) + (gap * (tile.effectiveRows - 1))
