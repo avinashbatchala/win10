@@ -78,7 +78,14 @@ fun StartTile(
         label = "tile_alpha"
     )
 
-    val baseColor = if (tile.customColor != null) Color(tile.customColor) else accentColor
+    // Third-party apps use their icon's brand colour (Windows 10 Mobile style); Metro/system
+    // glyphs and monochrome icons fall back to the accent colour. Explicit custom colour wins.
+    val brandColor = resolvedIcon?.brandColor
+    val baseColor = when {
+        tile.customColor != null -> Color(tile.customColor)
+        brandColor != null -> Color(brandColor)
+        else -> accentColor
+    }
     val bgAlpha = (1.0f - tileTransparency).coerceIn(0.0f, 1.0f)
     val tileBgColor = baseColor.copy(alpha = bgAlpha)
     val displayLabel = (tile.customLabel ?: tile.label) + (if (!tile.isAvailable) " (Unavailable)" else "")

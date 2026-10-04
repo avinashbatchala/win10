@@ -2,6 +2,7 @@ package com.ab.data
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -25,6 +26,9 @@ class LauncherIconRepository(private val context: Context) {
 
     private val pm: PackageManager = context.packageManager
     private val iconCache = ConcurrentHashMap<String, ResolvedLauncherIcon>()
+
+    // Cached brand colours for non-system apps (0L = "no usable colour").
+    private val brandColorCache = ConcurrentHashMap<String, Long>()
 
     /**
      * Resolves the icon for the specified application or tile.
@@ -61,7 +65,8 @@ class LauncherIconRepository(private val context: Context) {
                 val semantic = MetroIconOverrides.SemanticIcon.valueOf(customIconId)
                 return ResolvedLauncherIcon.VectorGlyph(
                     imageVector = MetroIconOverrides.getVector(semantic),
-                    semanticId = customIconId
+                    semanticId = customIconId,
+                    brandColor = resolveBrandColor(packageName, activityName)
                 )
             } catch (_: Exception) {}
         }
@@ -75,7 +80,10 @@ class LauncherIconRepository(private val context: Context) {
             if (override != null) {
                 return ResolvedLauncherIcon.VectorGlyph(
                     imageVector = MetroIconOverrides.getVector(override),
-                    semanticId = override.name
+                    semanticId = override.name,
+                    // Third-party apps keep their own brand colour behind the Metro glyph;
+                    // system apps use the accent (brandColor == null).
+                    brandColor = resolveBrandColor(packageName, activityName)
                 )
             }
         }
@@ -96,7 +104,10 @@ class LauncherIconRepository(private val context: Context) {
                     if (monoDrawable != null) {
                         val monoBitmap = drawableToBitmap(monoDrawable, targetSizePx, targetSizePx)
                         if (monoBitmap != null) {
-                            return ResolvedLauncherIcon.MonochromeBitmap(monoBitmap.asImageBitmap())
+                            return ResolvedLauncherIcon.MonochromeBitmap(
+                                bitmap = monoBitmap.asImageBitmap(),
+                                brandColor = resolveBrandColor(packageName, activityName)
+                            )
                         }
                     }
                 } catch (e: Exception) {
@@ -108,7 +119,10 @@ class LauncherIconRepository(private val context: Context) {
         // Priority 3: Original Android application icon (preserving original colors & transparency)
         val originalBitmap = drawableToBitmap(appDrawable, targetSizePx, targetSizePx)
         if (originalBitmap != null) {
-            return ResolvedLauncherIcon.OriginalBitmap(originalBitmap.asImageBitmap())
+            return ResolvedLauncherIcon.OriginalBitmap(
+                bitmap = originalBitmap.asImageBitmap(),
+                brandColor = if (isSystemApp(packageName)) null else extractBrandColor(originalBitmap)
+            )
         }
 
         // Fallback: Generic Windows Metro app glyph
@@ -116,6 +130,97 @@ class LauncherIconRepository(private val context: Context) {
             imageVector = MetroIcons.GenericApp,
             semanticId = "GENERIC_FALLBACK"
         )
+    }
+
+    /**
+     * Picks a representative brand colour from an app icon so third-party tiles can use the
+     * app's own colour (Windows 10 Mobile behaviour) instead of a single accent everywhere.
+     *
+     * Samples a small grid, ignores transparent/near-grey/near-black/near-white pixels and
+     * returns the average of the most common vivid colour bucket, or null if none is found.
+     */
+    private fun extractBrandColor(bitmap: Bitmap): Long? {
+        val width = bitmap.width
+        val height = bitmap.height
+        if (width <= 0 || height <= 0) return null
+
+        val stepX = (width / 32).coerceAtLeast(1)
+        val stepY = (height / 32).coerceAtLeast(1)
+        val hsv = FloatArray(3)
+        // bucket key -> [count, sumR, sumG, sumB]
+        val buckets = HashMap<Int, IntArray>()
+
+        var y = 0
+        while (y < height) {
+            var x = 0
+            while (x < width) {
+                val pixel = bitmap.getPixel(x, y)
+                val alpha = (pixel ushr 24) and 0xFF
+                if (alpha >= 128) {
+                    android.graphics.Color.colorToHSV(pixel, hsv)
+                    val saturation = hsv[1]
+                    val value = hsv[2]
+                    // Keep only reasonably vivid, mid-brightness colours.
+                    if (saturation >= 0.25f && value in 0.15f..0.97f) {
+                        val r = (pixel shr 16) and 0xFF
+                        val g = (pixel shr 8) and 0xFF
+                        val b = pixel and 0xFF
+                        val key = ((r shr 3) shl 10) or ((g shr 3) shl 5) or (b shr 3)
+                        val acc = buckets.getOrPut(key) { intArrayOf(0, 0, 0, 0) }
+                        acc[0]++
+                        acc[1] += r
+                        acc[2] += g
+                        acc[3] += b
+                    }
+                }
+                x += stepX
+            }
+            y += stepY
+        }
+
+        val best = buckets.maxByOrNull { it.value[0] } ?: return null
+        val count = best.value[0]
+        if (count <= 0) return null
+        val r = best.value[1] / count
+        val g = best.value[2] / count
+        val b = best.value[3] / count
+        return 0xFF000000L or (r.toLong() shl 16) or (g.toLong() shl 8) or b.toLong()
+    }
+
+    /**
+     * Returns the brand colour for a non-system app, extracting it from its launcher icon.
+     * System/first-party apps return null so they keep the theme accent (Windows 10 Mobile style).
+     */
+    private fun resolveBrandColor(packageName: String, activityName: String?): Long? {
+        val key = "$packageName/${activityName ?: ""}"
+        val cached = brandColorCache[key]
+        if (cached != null) return if (cached == 0L) null else cached
+
+        val color = if (isSystemApp(packageName)) {
+            null
+        } else {
+            // Use the application's main icon (what the user recognises) rather than the
+            // launcher activity icon, which is often a generic/inherited Chromium icon.
+            // Try the full icon first; if it has no usable colour (e.g. a white logo),
+            // fall back to the adaptive background layer, which often carries the brand.
+            runCatching { pm.getApplicationIcon(packageName) }.getOrNull()?.let { appIcon ->
+                val fromIcon = drawableToBitmap(appIcon, 64, 64)?.let { extractBrandColor(it) }
+                fromIcon ?: (appIcon as? AdaptiveIconDrawable)?.background?.let { bg ->
+                    drawableToBitmap(bg, 64, 64)?.let { extractBrandColor(it) }
+                }
+            }
+        }
+        brandColorCache[key] = color ?: 0L
+        return color
+    }
+
+    private fun isSystemApp(packageName: String): Boolean {
+        return try {
+            val appInfo = pm.getApplicationInfo(packageName, 0)
+            (appInfo.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun loadRawAppDrawable(packageName: String, activityName: String?): Drawable? {
@@ -160,10 +265,13 @@ class LauncherIconRepository(private val context: Context) {
     fun invalidatePackage(packageName: String) {
         val keysToRemove = iconCache.keys.filter { it.startsWith("$packageName/") }
         keysToRemove.forEach { iconCache.remove(it) }
+        val brandKeysToRemove = brandColorCache.keys.filter { it.startsWith("$packageName/") }
+        brandKeysToRemove.forEach { brandColorCache.remove(it) }
         Log.d(TAG, "Invalidated ${keysToRemove.size} icon cache entries for $packageName")
     }
 
     fun clearCache() {
         iconCache.clear()
+        brandColorCache.clear()
     }
 }

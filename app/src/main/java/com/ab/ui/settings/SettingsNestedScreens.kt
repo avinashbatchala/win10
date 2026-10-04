@@ -39,6 +39,7 @@ import com.ab.ui.settings.components.MetroButton
 import com.ab.ui.settings.components.MetroSettingRow
 import com.ab.ui.settings.components.MetroToggle
 import com.ab.ui.settings.components.SettingsPageInset
+import com.ab.ui.theme.LocalMetroAccentColor
 import com.ab.ui.theme.LocalMetroBackground
 import com.ab.ui.theme.LocalMetroForeground
 import com.ab.ui.theme.LocalMetroSubtleText
@@ -268,10 +269,20 @@ private fun openAppInfo(context: android.content.Context, packageName: String) {
 @Composable
 private fun IconBadge(app: AppInfo) {
     val isDark = LocalMetroForeground.current == Color.White
+    val accent = LocalMetroAccentColor.current
+    val icon = app.resolvedIcon
+    val isMetroOrMono = icon is com.ab.model.ResolvedLauncherIcon.VectorGlyph ||
+            icon is com.ab.model.ResolvedLauncherIcon.MonochromeBitmap
+    val brandColor = icon?.brandColor
+    val background = when {
+        brandColor != null -> Color(brandColor)
+        isMetroOrMono -> accent
+        else -> if (isDark) Color(0xFF181818) else Color(0xFFF0F0F0)
+    }
     Box(
         modifier = Modifier
             .size(MetroDimensions.appListIconBoxSize)
-            .background(if (isDark) Color(0xFF181818) else Color(0xFFF0F0F0), RectangleShape),
+            .background(background, RectangleShape),
         contentAlignment = Alignment.Center
     ) {
         if (app.resolvedIcon != null) {

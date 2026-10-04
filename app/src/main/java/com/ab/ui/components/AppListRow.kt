@@ -70,18 +70,23 @@ fun AppListRow(
                 .padding(horizontal = MetroDimensions.appListHorizontalInset),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // App icon container
+            // App icon container. Third-party apps use their icon's brand colour; Metro/system
+            // glyphs use the accent, and uncoloured originals use a neutral surface.
             val accentColor = com.ab.ui.theme.LocalMetroAccentColor.current
-            val isMetroOrMono = app.resolvedIcon is com.ab.model.ResolvedLauncherIcon.VectorGlyph ||
-                    app.resolvedIcon is com.ab.model.ResolvedLauncherIcon.MonochromeBitmap
+            val icon = app.resolvedIcon
+            val isMetroOrMono = icon is com.ab.model.ResolvedLauncherIcon.VectorGlyph ||
+                    icon is com.ab.model.ResolvedLauncherIcon.MonochromeBitmap
+            val brandColor = icon?.brandColor
+            val iconBackground = when {
+                brandColor != null -> Color(brandColor)
+                isMetroOrMono -> accentColor
+                else -> if (isDark) Color(0xFF181818) else Color(0xFFF0F0F0)
+            }
 
             Box(
                 modifier = Modifier
                     .size(MetroDimensions.appListIconBoxSize)
-                    .background(
-                        if (isMetroOrMono) accentColor else (if (isDark) Color(0xFF181818) else Color(0xFFF0F0F0)),
-                        RectangleShape
-                    ),
+                    .background(iconBackground, RectangleShape),
                 contentAlignment = Alignment.Center
             ) {
                 if (app.resolvedIcon != null) {
