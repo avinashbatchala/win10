@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Windows 10 perspective 4-pane icon -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,34 L49,31.5 L49,51.5 L30,51.5 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,56.5 L49,56.5 L49,76.5 L30,74 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M55,30.5 L78,27 L78,51.5 L55,51.5 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M55,56.5 L78,56.5 L78,81 L55,77.5 Z" />
+</vector>

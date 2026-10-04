@@ -1,0 +1,6 @@
+{
+  "name": "Win10 Start",
+  "description": "Authentic Windows 10 Mobile Start screen launcher for Android with live-proportioned tiles, smooth horizontal swipe, alphabet jump list, and custom tile editing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
