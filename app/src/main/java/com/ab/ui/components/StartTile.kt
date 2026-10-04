@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,6 +59,11 @@ fun StartTile(
     modifier: Modifier = Modifier
 ) {
     var isPressed by remember { mutableStateOf(false) }
+
+    // Entering/leaving edit mode restarts the pointer input, cancelling any in-flight
+    // press before its release handler can run. That would leave isPressed stuck true
+    // and keep a deselected tile shrunk, so reset it whenever edit mode changes.
+    LaunchedEffect(isEditMode) { isPressed = false }
 
     // Metro 3D perspective tilt animation on press
     val pressScale by animateFloatAsState(
