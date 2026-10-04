@@ -1,7 +1,10 @@
 package com.ab
 
+import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -16,11 +19,25 @@ import com.ab.ui.viewmodel.LauncherViewModel
 
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        private const val TAG_ACTIVITY = "LauncherActivity"
+        private const val TAG_BACK = "LauncherBack"
+    }
+
     private val viewModel: LauncherViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(TAG_ACTIVITY, "onCreate: LauncherActivity initialized (instance: ${hashCode()})")
         enableEdgeToEdge()
+
+        // Root fallback callback ensuring the activity NEVER finishes on Back gesture
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                Log.d(TAG_BACK, "Root Activity OnBackPressedCallback invoked: consuming Back and remaining idle.")
+                viewModel.handleInternalBack()
+            }
+        })
 
         setContent {
             val settings by viewModel.settings.collectAsState()
@@ -35,8 +52,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        Log.d(TAG_ACTIVITY, "onNewIntent received: action=${intent.action}, categories=${intent.categories}")
+        if (intent.hasCategory(Intent.CATEGORY_HOME) || intent.action == Intent.ACTION_MAIN) {
+            viewModel.resetToStartRoot()
+        }
+    }
+
     override fun onResume() {
         super.onResume()
+        Log.d(TAG_ACTIVITY, "onResume: LauncherActivity resumed")
         viewModel.checkDefaultLauncherStatus()
     }
 }

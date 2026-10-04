@@ -7,9 +7,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Process
 import android.provider.Settings
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ImageBitmap
@@ -32,6 +34,12 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
+
+    companion object {
+        private const val TAG_BACK = "LauncherBack"
+        private const val TAG_UNINSTALL = "LauncherUninstall"
+        private const val TAG_PACKAGE = "LauncherPackage"
+    }
 
     private val repository = InstalledAppRepository(application, viewModelScope)
     private val preferences = LauncherPreferences(application)
@@ -71,6 +79,9 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private val _isSettingsOpen = MutableStateFlow(false)
     val isSettingsOpen: StateFlow<Boolean> = _isSettingsOpen.asStateFlow()
+
+    private val _requestScrollToStart = MutableStateFlow(false)
+    val requestScrollToStart: StateFlow<Boolean> = _requestScrollToStart.asStateFlow()
 
     val filteredApps: StateFlow<List<AppInfo>> = combine(
         installedApps,
@@ -115,18 +126,74 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                         _pinnedTiles.value = defaultTiles
                         preferences.savePinnedTiles(defaultTiles)
                     } else {
-                        // Mark availability for pinned apps
                         val installedPkgs = apps.map { it.packageName }.toSet()
-                        val updated = _pinnedTiles.value.map { tile ->
-                            tile.copy(isAvailable = installedPkgs.contains(tile.packageName))
-                        }
-                        if (updated != _pinnedTiles.value) {
-                            _pinnedTiles.value = updated
+                        val currentTiles = _pinnedTiles.value
+                        val hasRemovedTiles = currentTiles.any { !installedPkgs.contains(it.packageName) }
+
+                        if (hasRemovedTiles) {
+                            Log.d(TAG_PACKAGE, "Detected package removal. Purging uninstalled tiles and updating Start layout.")
+                            val remainingTiles = currentTiles.filter { installedPkgs.contains(it.packageName) }
+                            val totalCols = if (_settings.value.showMoreTiles) 8 else 6
+                            val compacted = GridManager.compactGrid(remainingTiles, totalCols)
+                            _pinnedTiles.value = compacted
+                            saveTiles(compacted)
+                        } else {
+                            val updated = currentTiles.map { tile ->
+                                tile.copy(isAvailable = installedPkgs.contains(tile.packageName))
+                            }
+                            if (updated != currentTiles) {
+                                _pinnedTiles.value = updated
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Consumes Back in internal launcher priority order:
+     * 1. Close any modal / dialog / settings.
+     * 2. Exit tile edit mode.
+     * 3. Close search if active.
+     * 4. Close alphabet jump overlay if open.
+     * Returns true if internal state was handled; false if at page level.
+     */
+    fun handleInternalBack(): Boolean {
+        if (_isSettingsOpen.value) {
+            Log.d(TAG_BACK, "Back consumed: closing settings sheet.")
+            _isSettingsOpen.value = false
+            return true
+        }
+        if (_isEditMode.value) {
+            Log.d(TAG_BACK, "Back consumed: exiting tile edit mode.")
+            exitEditMode()
+            return true
+        }
+        if (_isSearchActive.value || _searchQuery.value.isNotEmpty()) {
+            Log.d(TAG_BACK, "Back consumed: closing search and clearing query.")
+            setSearchActive(false)
+            return true
+        }
+        if (_isJumpListOpen.value) {
+            Log.d(TAG_BACK, "Back consumed: closing alphabet jump list.")
+            closeJumpList()
+            return true
+        }
+        return false
+    }
+
+    fun resetToStartRoot() {
+        Log.d("LauncherNav", "Resetting launcher to Start root destination.")
+        exitEditMode()
+        closeSettings()
+        closeJumpList()
+        setSearchActive(false)
+        _requestScrollToStart.value = true
+    }
+
+    fun onScrollToStartHandled() {
+        _requestScrollToStart.value = false
     }
 
     fun checkDefaultLauncherStatus() {
@@ -310,6 +377,51 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         if (!launched) {
             val appName = label.ifEmpty { packageName }
             Toast.makeText(context, "$appName is no longer available", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun uninstallApp(context: Context, packageName: String) {
+        Log.d(TAG_UNINSTALL, "Triggering uninstall for package: $packageName")
+        var started = false
+        try {
+            val intent = Intent(Intent.ACTION_DELETE).apply {
+                data = Uri.parse("package:$packageName")
+                putExtra(Intent.EXTRA_RETURN_RESULT, true)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            started = true
+            Log.d(TAG_UNINSTALL, "Native ACTION_DELETE intent launched for $packageName")
+        } catch (e: Exception) {
+            Log.w(TAG_UNINSTALL, "ACTION_DELETE failed for $packageName, trying ACTION_UNINSTALL_PACKAGE", e)
+        }
+
+        if (!started) {
+            try {
+                val fallbackIntent = Intent(Intent.ACTION_UNINSTALL_PACKAGE).apply {
+                    data = Uri.parse("package:$packageName")
+                    putExtra(Intent.EXTRA_RETURN_RESULT, true)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(fallbackIntent)
+                started = true
+                Log.d(TAG_UNINSTALL, "Fallback ACTION_UNINSTALL_PACKAGE launched for $packageName")
+            } catch (e: Exception) {
+                Log.w(TAG_UNINSTALL, "ACTION_UNINSTALL_PACKAGE failed for $packageName", e)
+            }
+        }
+
+        if (!started) {
+            try {
+                val settingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:$packageName")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(settingsIntent)
+                Log.d(TAG_UNINSTALL, "Fallback ACTION_APPLICATION_DETAILS_SETTINGS launched for $packageName")
+            } catch (e: Exception) {
+                Log.e(TAG_UNINSTALL, "All uninstall attempts failed for $packageName", e)
+            }
         }
     }
 

@@ -7,7 +7,8 @@ data class AppInfo(
     val activityName: String,
     val label: String,
     val iconBitmap: ImageBitmap?,
-    val firstLetter: Char
+    val firstLetter: Char,
+    val canUninstall: Boolean = false
 ) {
     val key: String get() = "$packageName/$activityName"
 }

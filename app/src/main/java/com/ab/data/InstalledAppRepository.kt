@@ -1,10 +1,10 @@
 package com.ab.data
 
 import android.content.BroadcastReceiver
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherActivityInfo
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
@@ -12,10 +12,12 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.os.Build
 import android.os.Process
 import android.os.UserHandle
 import android.os.UserManager
+import android.util.Log
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import com.ab.model.AppInfo
@@ -32,6 +34,10 @@ class InstalledAppRepository(
     private val context: Context,
     private val scope: CoroutineScope
 ) {
+    companion object {
+        private const val TAG = "LauncherPackage"
+    }
+
     private val _installedApps = MutableStateFlow<List<AppInfo>>(emptyList())
     val installedApps: StateFlow<List<AppInfo>> = _installedApps.asStateFlow()
 
@@ -45,24 +51,29 @@ class InstalledAppRepository(
 
     private val launcherAppsCallback = object : LauncherApps.Callback() {
         override fun onPackageAdded(packageName: String, user: UserHandle) {
+            Log.d(TAG, "LauncherApps callback - package added: $packageName")
             reloadApps()
         }
 
         override fun onPackageChanged(packageName: String, user: UserHandle) {
+            Log.d(TAG, "LauncherApps callback - package changed: $packageName")
             invalidatePackage(packageName)
             reloadApps()
         }
 
         override fun onPackageRemoved(packageName: String, user: UserHandle) {
+            Log.d(TAG, "LauncherApps callback - package removed: $packageName")
             invalidatePackage(packageName)
             reloadApps()
         }
 
         override fun onPackagesAvailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) {
+            Log.d(TAG, "LauncherApps callback - packages available: ${packageNames.joinToString()}")
             reloadApps()
         }
 
         override fun onPackagesUnavailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) {
+            Log.d(TAG, "LauncherApps callback - packages unavailable: ${packageNames.joinToString()}")
             reloadApps()
         }
     }
@@ -70,6 +81,8 @@ class InstalledAppRepository(
     private val packageBroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context?, intent: Intent?) {
             val pkg = intent?.data?.schemeSpecificPart
+            val action = intent?.action
+            Log.d(TAG, "BroadcastReceiver action: $action for pkg: $pkg")
             if (!pkg.isNullOrEmpty()) {
                 invalidatePackage(pkg)
             }
@@ -85,7 +98,9 @@ class InstalledAppRepository(
     private fun registerCallbacks() {
         try {
             launcherApps?.registerCallback(launcherAppsCallback)
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to register LauncherApps callback", e)
+        }
 
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
@@ -103,7 +118,9 @@ class InstalledAppRepository(
         } catch (_: Exception) {
             try {
                 context.registerReceiver(packageBroadcastReceiver, filter)
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to register package broadcast receiver", e)
+            }
         }
     }
 
@@ -117,7 +134,17 @@ class InstalledAppRepository(
             val apps = queryAllLaunchableApps()
             _installedApps.value = apps
             _isLoaded.value = true
+            Log.d(TAG, "Apps list updated: ${apps.size} launchable activities found.")
         }
+    }
+
+    private fun checkCanUninstall(pkg: String, appInfoFlags: Int): Boolean {
+        if (pkg == context.packageName) return false
+        val isSystem = (appInfoFlags and ApplicationInfo.FLAG_SYSTEM) != 0
+        val isUpdatedSystem = (appInfoFlags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+        // Non-system apps or updated system apps can normally be uninstalled
+        if (isSystem && !isUpdatedSystem) return false
+        return true
     }
 
     private suspend fun queryAllLaunchableApps(): List<AppInfo> = withContext(Dispatchers.IO) {
@@ -148,6 +175,7 @@ class InstalledAppRepository(
 
                         val firstRawChar = label.trim().firstOrNull()?.uppercaseChar() ?: '#'
                         val firstLetter = if (firstRawChar in 'A'..'Z') firstRawChar else '#'
+                        val canUninstall = checkCanUninstall(pkg, info.applicationInfo.flags)
 
                         appList.add(
                             AppInfo(
@@ -155,13 +183,14 @@ class InstalledAppRepository(
                                 activityName = activityName,
                                 label = label,
                                 iconBitmap = iconBitmap,
-                                firstLetter = firstLetter
+                                firstLetter = firstLetter,
+                                canUninstall = canUninstall
                             )
                         )
                     }
                 }
-            } catch (_: Exception) {
-                // Fall back to standard PackageManager if LauncherApps throws
+            } catch (e: Exception) {
+                Log.w(TAG, "Error querying LauncherApps", e)
             }
         }
 
@@ -192,6 +221,7 @@ class InstalledAppRepository(
 
                 val firstRawChar = label.trim().firstOrNull()?.uppercaseChar() ?: '#'
                 val firstLetter = if (firstRawChar in 'A'..'Z') firstRawChar else '#'
+                val canUninstall = checkCanUninstall(pkg, ri.activityInfo.applicationInfo.flags)
 
                 appList.add(
                     AppInfo(
@@ -199,7 +229,8 @@ class InstalledAppRepository(
                         activityName = activityName,
                         label = label,
                         iconBitmap = iconBitmap,
-                        firstLetter = firstLetter
+                        firstLetter = firstLetter,
+                        canUninstall = canUninstall
                     )
                 )
             }

@@ -33,7 +33,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ab.model.AppInfo
-import com.ab.ui.theme.MetroColors
 import com.ab.ui.theme.MetroDimensions
 import com.ab.ui.theme.MetroTypography
 
@@ -46,6 +45,7 @@ fun AppListRow(
     onClick: () -> Unit,
     onPinToStart: () -> Unit,
     onUnpinFromStart: () -> Unit,
+    onUninstall: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -129,7 +129,7 @@ fun AppListRow(
                 onClick = {
                     showMenu = false
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", app.packageName, null)
+                        data = Uri.parse("package:${app.packageName}")
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     try {
@@ -145,21 +145,21 @@ fun AppListRow(
                 text = {
                     Text(
                         text = "Uninstall",
-                        style = MetroTypography.contextMenuItem
+                        style = MetroTypography.contextMenuItem.copy(
+                            color = if (app.canUninstall) Color.White else Color(0xFF666666)
+                        )
                     )
                 },
+                enabled = app.canUninstall,
                 onClick = {
                     showMenu = false
-                    val intent = Intent(Intent.ACTION_DELETE).apply {
-                        data = Uri.fromParts("package", app.packageName, null)
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    if (app.canUninstall) {
+                        onUninstall()
                     }
-                    try {
-                        context.startActivity(intent)
-                    } catch (_: Exception) {}
                 },
                 colors = MenuDefaults.itemColors(
-                    textColor = Color.White
+                    textColor = Color.White,
+                    disabledTextColor = Color(0xFF666666)
                 )
             )
         }

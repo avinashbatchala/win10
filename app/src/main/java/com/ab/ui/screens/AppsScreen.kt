@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.ab.model.AppInfo
@@ -52,6 +53,7 @@ fun AppsScreen(
 ) {
     val settings by viewModel.settings.collectAsState()
     val accentColor = Color(settings.accentColor)
+    val context = LocalContext.current
 
     val searchQuery by viewModel.searchQuery.collectAsState()
     val isJumpListOpen by viewModel.isJumpListOpen.collectAsState()
@@ -171,6 +173,9 @@ fun AppsScreen(
                             },
                             onUnpinFromStart = {
                                 viewModel.unpinAppByPackage(app.packageName)
+                            },
+                            onUninstall = {
+                                viewModel.uninstallApp(context, app.packageName)
                             }
                         )
                     }
@@ -218,6 +223,9 @@ fun AppsScreen(
                                 },
                                 onUnpinFromStart = {
                                     viewModel.unpinAppByPackage(app.packageName)
+                                },
+                                onUninstall = {
+                                    viewModel.uninstallApp(context, app.packageName)
                                 }
                             )
                         }
