@@ -6,5 +6,6 @@ data class LauncherSettings(
     val showMoreTiles: Boolean = false, // 6 columns (default) vs 8 columns
     val tileTransparency: Float = 0.0f, // 0.0f = 0% transparent (opaque), 1.0f = 100% transparent
     val backgroundImageUri: String? = null,
-    val isDefaultLauncher: Boolean = false
+    val isDefaultLauncher: Boolean = false,
+    val showMediaLiveTiles: Boolean = true
 )

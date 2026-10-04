@@ -79,6 +79,10 @@ fun SettingsSheet(
     onThemeChanged: (Boolean) -> Unit,
     onSelectBackgroundUri: (String?) -> Unit,
     onRequestSetDefault: () -> Unit,
+    isMediaAccessGranted: Boolean = false,
+    onToggleShowMediaLiveTiles: (Boolean) -> Unit = {},
+    onOpenMediaAccessSettings: () -> Unit = {},
+    onPinNowPlayingTile: () -> Unit = {},
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -392,6 +396,86 @@ fun SettingsSheet(
                             style = MetroTypography.buttonLabel.copy(color = fgColor)
                         )
                     }
+                }
+
+                Spacer(modifier = Modifier.height(36.dp))
+
+                // 7. Media Live Tiles
+                Text(
+                    text = "MEDIA",
+                    style = MetroTypography.settingsSection.copy(color = accentColor),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onToggleShowMediaLiveTiles(!settings.showMediaLiveTiles) },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Show media on live tiles",
+                            style = MetroTypography.settingsLabel.copy(color = fgColor)
+                        )
+                        Text(
+                            text = if (settings.showMediaLiveTiles) "Display playback from compatible media apps" else "Disabled",
+                            style = MetroTypography.settingsSubtext.copy(color = subtleColor)
+                        )
+                    }
+
+                    WindowsToggle(
+                        checked = settings.showMediaLiveTiles,
+                        onCheckedChange = { onToggleShowMediaLiveTiles(it) },
+                        accentColor = accentColor,
+                        isDark = isDark
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Media access: " + if (isMediaAccessGranted) "Allowed" else "Not allowed",
+                    style = MetroTypography.settingsLabel.copy(color = fgColor),
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+
+                Text(
+                    text = "Android requires Notification Access to discover active media playback sessions. The launcher does not access or store your messages or notifications.",
+                    style = MetroTypography.settingsSubtext.copy(color = subtleColor),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                if (!isMediaAccessGranted) {
+                    Box(
+                        modifier = Modifier
+                            .testTag("allow_media_access_button")
+                            .border(2.dp, if (isDark) Color.White else Color.Black, RectangleShape)
+                            .clickable { onOpenMediaAccessSettings() }
+                            .padding(horizontal = 20.dp, vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "ALLOW MEDIA ACCESS",
+                            style = MetroTypography.buttonLabel.copy(color = fgColor)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                Box(
+                    modifier = Modifier
+                        .testTag("pin_now_playing_tile_button")
+                        .border(1.5.dp, accentColor, RectangleShape)
+                        .clickable { onPinNowPlayingTile() }
+                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Pin 'Now Playing' Tile to Start",
+                        style = MetroTypography.buttonLabel.copy(color = fgColor)
+                    )
                 }
             }
         }

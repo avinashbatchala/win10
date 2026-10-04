@@ -58,6 +58,25 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     private val _settings = MutableStateFlow(LauncherSettings())
     val settings: StateFlow<LauncherSettings> = _settings.asStateFlow()
 
+    // Android MediaSession Integration
+    val mediaSessionRepository = com.ab.media.MediaSessionRepository(application, viewModelScope)
+    val mediaActionDispatcher = object : com.ab.media.MediaActionDispatcher {
+        override fun play(packageName: String) = mediaSessionRepository.sendPlay(packageName)
+        override fun pause(packageName: String) = mediaSessionRepository.sendPause(packageName)
+        override fun skipNext(packageName: String) = mediaSessionRepository.sendSkipNext(packageName)
+        override fun skipPrevious(packageName: String) = mediaSessionRepository.sendSkipPrevious(packageName)
+        override fun seekTo(packageName: String, positionMs: Long) = mediaSessionRepository.sendSeekTo(packageName, positionMs)
+    }
+
+    // Live Tile Manager with MediaSessionProvider wired
+    val liveTileManager = com.ab.livetile.engine.LiveTileManager(
+        context = application,
+        scope = viewModelScope,
+        mediaRepository = mediaSessionRepository,
+        isMediaLiveTilesEnabled = { _settings.value.showMediaLiveTiles }
+    )
+    val liveTileStates: StateFlow<Map<String, com.ab.livetile.model.LiveTileState>> = liveTileManager.tileStates
+
     // Wallpaper bitmap loaded asynchronously
     private val _wallpaperBitmap = MutableStateFlow<ImageBitmap?>(null)
     val wallpaperBitmap: StateFlow<ImageBitmap?> = _wallpaperBitmap.asStateFlow()
@@ -123,6 +142,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         }
 
         // Initialize pinned tiles and synchronize with installed apps
+        viewModelScope.launch {
+            _pinnedTiles.collect { tiles ->
+                liveTileManager.syncPinnedTiles(tiles)
+            }
+        }
+
         viewModelScope.launch {
             val savedTiles = preferences.pinnedTilesFlow.first()
             if (savedTiles != null && savedTiles.isNotEmpty()) {
@@ -670,5 +695,65 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     fun closeSettings() {
         _isSettingsOpen.value = false
+    }
+
+    fun getLiveTileState(packageName: String, activityName: String? = null): com.ab.livetile.model.LiveTileState? {
+        return liveTileManager.getLiveTileState(packageName, activityName)
+    }
+
+    fun toggleShowMediaLiveTiles(enabled: Boolean) {
+        _settings.value = _settings.value.copy(showMediaLiveTiles = enabled)
+        liveTileManager.recomputeMediaTiles()
+        viewModelScope.launch {
+            preferences.updateShowMediaLiveTiles(enabled)
+        }
+    }
+
+    fun openNotificationAccessSettings(context: Context) {
+        mediaSessionRepository.openNotificationAccessSettings(context)
+    }
+
+    fun pinNowPlayingTile() {
+        val currentTiles = _pinnedTiles.value
+        val alreadyPinned = currentTiles.any { it.packageName == com.ab.livetile.providers.MediaLiveTileProvider.NOW_PLAYING_PACKAGE }
+        if (alreadyPinned) return
+
+        val totalCols = if (_settings.value.showMoreTiles) 8 else 6
+        val (col, row) = GridManager.findFirstAvailablePosition(
+            cols = TileSize.WIDE.cols,
+            rows = TileSize.WIDE.rows,
+            tiles = currentTiles,
+            totalColumns = totalCols
+        )
+
+        val newTile = TileModel(
+            id = "now_playing_${System.currentTimeMillis()}",
+            packageName = com.ab.livetile.providers.MediaLiveTileProvider.NOW_PLAYING_PACKAGE,
+            label = "Now Playing",
+            size = TileSize.WIDE,
+            col = col,
+            row = row,
+            order = currentTiles.size,
+            isAvailable = true
+        )
+
+        val updated = currentTiles + newTile
+        _pinnedTiles.value = updated
+        saveTiles(updated)
+    }
+
+    fun onStart() {
+        mediaSessionRepository.onResume()
+        liveTileManager.onStart()
+    }
+
+    fun onStop() {
+        liveTileManager.onStop()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        mediaSessionRepository.onDestroy()
+        liveTileManager.onStop()
     }
 }

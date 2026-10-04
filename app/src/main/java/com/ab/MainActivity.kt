@@ -61,9 +61,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        viewModel.onStart()
+    }
+
     override fun onResume() {
         super.onResume()
         Log.d(TAG_ACTIVITY, "onResume: LauncherActivity resumed")
         viewModel.checkDefaultLauncherStatus()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        viewModel.onStop()
     }
 }

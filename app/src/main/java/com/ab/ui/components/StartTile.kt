@@ -20,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -28,6 +27,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.ab.livetile.model.LiveTileState
+import com.ab.livetile.ui.LiveTileRenderer
 import com.ab.model.ResolvedLauncherIcon
 import com.ab.model.TileModel
 import com.ab.model.TileSize
@@ -49,6 +50,8 @@ fun StartTile(
     onResize: () -> Unit,
     onUnpin: () -> Unit,
     tileTransparency: Float = 0.0f,
+    liveTileState: LiveTileState? = null,
+    mediaActionDispatcher: com.ab.media.MediaActionDispatcher? = null,
     modifier: Modifier = Modifier
 ) {
     var isPressed by remember { mutableStateOf(false) }
@@ -106,127 +109,130 @@ fun StartTile(
                 }
             }
     ) {
-        // Tile internal content
-        when (tile.size) {
-            TileSize.SMALL -> {
-                // Icon centered, no label
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (resolvedIcon != null) {
-                        LauncherIconView(
-                            icon = resolvedIcon,
-                            contentDescription = tile.label,
-                            tint = Color.White,
-                            modifier = Modifier.size(MetroDimensions.tileIconSizeSmall)
+        // Live Tile content or Static Tile fallback
+        if (liveTileState != null && liveTileState.activeFace != null) {
+            LiveTileRenderer(
+                liveState = liveTileState,
+                tileSize = tile.size,
+                defaultLabel = displayLabel,
+                dispatcher = mediaActionDispatcher
+            )
+        } else {
+            // Static Tile Fallback: Always displays pure icon + label cleanly
+            when (tile.size) {
+                TileSize.SMALL -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (resolvedIcon != null) {
+                            LauncherIconView(
+                                icon = resolvedIcon,
+                                contentDescription = tile.label,
+                                tint = Color.White,
+                                modifier = Modifier.size(MetroDimensions.tileIconSizeSmall)
+                            )
+                        }
+                    }
+                }
+                TileSize.MEDIUM -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(MetroDimensions.tileContentPadding)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(bottom = 14.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (resolvedIcon != null) {
+                                LauncherIconView(
+                                    icon = resolvedIcon,
+                                    contentDescription = tile.label,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(MetroDimensions.tileIconSizeMedium)
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = displayLabel,
+                            style = MetroTypography.tileLabel,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.align(Alignment.BottomStart)
                         )
                     }
                 }
-            }
-            TileSize.MEDIUM -> {
-                // Icon in primary optical area, label in lower-left
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(MetroDimensions.tileContentPadding)
-                ) {
-                    // Icon optically centered slightly above middle
+                TileSize.WIDE -> {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(bottom = 14.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(MetroDimensions.tileContentPadding)
                     ) {
-                        if (resolvedIcon != null) {
-                            LauncherIconView(
-                                icon = resolvedIcon,
-                                contentDescription = tile.label,
-                                tint = Color.White,
-                                modifier = Modifier.size(MetroDimensions.tileIconSizeMedium)
-                            )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(bottom = 14.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (resolvedIcon != null) {
+                                LauncherIconView(
+                                    icon = resolvedIcon,
+                                    contentDescription = tile.label,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(MetroDimensions.tileIconSizeWide)
+                                )
+                            }
                         }
-                    }
 
-                    // Label in lower-left
-                    Text(
-                        text = displayLabel,
-                        style = MetroTypography.tileLabel,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.align(Alignment.BottomStart)
-                    )
+                        Text(
+                            text = displayLabel,
+                            style = MetroTypography.tileLabel,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.align(Alignment.BottomStart)
+                        )
+                    }
                 }
-            }
-            TileSize.WIDE -> {
-                // Icon in left-center area, label in lower-left
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(MetroDimensions.tileContentPadding)
-                ) {
+                TileSize.LARGE -> {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(bottom = 14.dp),
-                        contentAlignment = Alignment.Center
+                            .padding(MetroDimensions.tileContentPadding * 1.5f)
                     ) {
-                        if (resolvedIcon != null) {
-                            LauncherIconView(
-                                icon = resolvedIcon,
-                                contentDescription = tile.label,
-                                tint = Color.White,
-                                modifier = Modifier.size(MetroDimensions.tileIconSizeWide)
-                            )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(bottom = 20.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (resolvedIcon != null) {
+                                LauncherIconView(
+                                    icon = resolvedIcon,
+                                    contentDescription = tile.label,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(MetroDimensions.tileIconSizeLarge)
+                                )
+                            }
                         }
-                    }
 
-                    Text(
-                        text = displayLabel,
-                        style = MetroTypography.tileLabel,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.align(Alignment.BottomStart)
-                    )
-                }
-            }
-            TileSize.LARGE -> {
-                // Large icon in upper area, label in lower-left
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(MetroDimensions.tileContentPadding * 1.5f)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(bottom = 20.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (resolvedIcon != null) {
-                            LauncherIconView(
-                                icon = resolvedIcon,
-                                contentDescription = tile.label,
-                                tint = Color.White,
-                                modifier = Modifier.size(MetroDimensions.tileIconSizeLarge)
-                            )
-                        }
+                        Text(
+                            text = displayLabel,
+                            style = MetroTypography.tileLabelLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.align(Alignment.BottomStart)
+                        )
                     }
-
-                    Text(
-                        text = displayLabel,
-                        style = MetroTypography.tileLabelLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.align(Alignment.BottomStart)
-                    )
                 }
             }
         }
 
         // Edit mode controls with authentic Metro glyphs
         if (isEditMode && isSelected) {
-            // Unpin button (top-right)
             TileUnpinButton(
                 onUnpin = onUnpin,
                 modifier = Modifier
@@ -234,7 +240,6 @@ fun StartTile(
                     .padding(4.dp)
             )
 
-            // Resize button (bottom-right)
             TileResizeButton(
                 onResize = onResize,
                 modifier = Modifier

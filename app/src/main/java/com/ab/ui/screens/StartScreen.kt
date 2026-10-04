@@ -112,11 +112,20 @@ fun StartScreen(
                     draggedTileId = viewModel.draggedTileId.collectAsState().value,
                     dragOffset = viewModel.dragOffset.collectAsState().value,
                     getLauncherIcon = { pkg, act -> viewModel.resolveLauncherIcon(pkg, act) },
+                    getLiveTileState = { pkg, act -> viewModel.getLiveTileState(pkg, act) },
+                    mediaActionDispatcher = viewModel.mediaActionDispatcher,
                     onTileClick = { tile ->
                         if (isEditMode) {
                             viewModel.onTileClickedInEdit(tile.id)
                         } else {
-                            viewModel.launchApp(viewModel.getApplication(), tile.packageName, tile.activityName, tile.label)
+                            if (tile.packageName == "livetile.nowplaying") {
+                                val primaryPkg = viewModel.mediaSessionRepository.primarySession.value?.packageName
+                                if (primaryPkg != null) {
+                                    viewModel.launchApp(viewModel.getApplication(), primaryPkg, "", tile.label)
+                                }
+                            } else {
+                                viewModel.launchApp(viewModel.getApplication(), tile.packageName, tile.activityName, tile.label)
+                            }
                         }
                     },
                     onTileLongClick = { tileId ->

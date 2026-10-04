@@ -119,6 +119,17 @@ fun MainLauncherScreen(
             onRequestSetDefault = {
                 viewModel.requestSetDefaultLauncher(context)
             },
+            isMediaAccessGranted = viewModel.mediaSessionRepository.isNotificationAccessGranted.collectAsState().value,
+            onToggleShowMediaLiveTiles = { enabled ->
+                viewModel.toggleShowMediaLiveTiles(enabled)
+            },
+            onOpenMediaAccessSettings = {
+                viewModel.openNotificationAccessSettings(context)
+            },
+            onPinNowPlayingTile = {
+                viewModel.pinNowPlayingTile()
+                viewModel.closeSettings()
+            },
             onClose = {
                 viewModel.closeSettings()
             }

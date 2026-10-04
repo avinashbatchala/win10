@@ -33,6 +33,7 @@ class LauncherPreferences(private val context: Context) {
         private val KEY_TILE_TRANSPARENCY = floatPreferencesKey("tile_transparency")
         private val KEY_BACKGROUND_IMAGE_URI = stringPreferencesKey("background_image_uri")
         private val KEY_FIRST_RUN_DONE = booleanPreferencesKey("first_run_done")
+        private val KEY_SHOW_MEDIA_LIVE_TILES = booleanPreferencesKey("show_media_live_tiles")
     }
 
     val pinnedTilesFlow: Flow<List<TileModel>?> = context.dataStore.data.map { prefs ->
@@ -46,7 +47,8 @@ class LauncherPreferences(private val context: Context) {
             darkTheme = prefs[KEY_DARK_THEME] ?: true,
             showMoreTiles = prefs[KEY_SHOW_MORE_TILES] ?: false,
             tileTransparency = prefs[KEY_TILE_TRANSPARENCY] ?: 0.0f,
-            backgroundImageUri = prefs[KEY_BACKGROUND_IMAGE_URI]
+            backgroundImageUri = prefs[KEY_BACKGROUND_IMAGE_URI],
+            showMediaLiveTiles = prefs[KEY_SHOW_MEDIA_LIVE_TILES] ?: true
         )
     }
 
@@ -94,6 +96,12 @@ class LauncherPreferences(private val context: Context) {
             } else {
                 prefs.remove(KEY_BACKGROUND_IMAGE_URI)
             }
+        }
+    }
+
+    suspend fun updateShowMediaLiveTiles(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_SHOW_MEDIA_LIVE_TILES] = enabled
         }
     }
 

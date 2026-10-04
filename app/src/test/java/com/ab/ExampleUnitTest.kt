@@ -197,4 +197,60 @@ class ExampleUnitTest {
             com.ab.data.MetroIconOverrides.findOverride("com.supercell.clashofclans")
         )
     }
+
+    @Test
+    fun testLiveTileRegistry() {
+        val registry = com.ab.livetile.engine.LiveTileRegistry()
+
+        // Clock matching
+        val clockProvider = registry.findProvider("com.google.android.deskclock")
+        assertTrue("Clock provider should be resolved for deskclock", clockProvider != null)
+        assertEquals("livetile.system.clock", clockProvider?.providerId)
+
+        // Calendar / Date matching
+        val dateProvider = registry.findProvider("com.google.android.calendar")
+        assertTrue("Date provider should be resolved for calendar", dateProvider != null)
+        assertEquals("livetile.system.date", dateProvider?.providerId)
+
+        // Battery matching
+        val batteryProvider = registry.findProvider("livetile.demo.battery")
+        assertTrue("Battery provider should be resolved for demo battery", batteryProvider != null)
+        assertEquals("livetile.system.battery", batteryProvider?.providerId)
+
+        // Unrelated third party app -> must return null for static fallback
+        val unknownProvider = registry.findProvider("com.spotify.music")
+        assertEquals(null, unknownProvider)
+    }
+
+    @Test
+    fun testLiveTileMultiFaceTransitions() {
+        val face1 = com.ab.livetile.model.LiveTileFace(
+            template = com.ab.livetile.model.LiveTileTemplate.COUNT,
+            primaryText = "85%",
+            accessibilityDescription = "Battery 85%"
+        )
+        val face2 = com.ab.livetile.model.LiveTileFace(
+            template = com.ab.livetile.model.LiveTileTemplate.PRIMARY_TEXT,
+            primaryText = "Charging",
+            accessibilityDescription = "Charging"
+        )
+
+        val state = com.ab.livetile.model.LiveTileState(
+            providerId = "demo.test",
+            faces = listOf(face1, face2),
+            activeFaceIndex = 0
+        )
+
+        assertEquals(face1, state.activeFace)
+
+        // Step to next face
+        val state2 = state.nextFace()
+        assertEquals(1, state2.activeFaceIndex)
+        assertEquals(face2, state2.activeFace)
+
+        // Step again -> wraps around to 0
+        val state3 = state2.nextFace()
+        assertEquals(0, state3.activeFaceIndex)
+        assertEquals(face1, state3.activeFace)
+    }
 }

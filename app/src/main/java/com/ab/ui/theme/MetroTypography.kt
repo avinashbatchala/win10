@@ -62,6 +62,35 @@ object MetroTypography {
         shadow = Shadow(color = Color(0xDD000000), offset = Offset(1f, 1f), blurRadius = 3f)
     )
 
+    val tileCountNumber = TextStyle(
+        fontFamily = SegoeUiFontFamily,
+        fontWeight = FontWeight.Light,
+        fontSize = 44.sp,
+        lineHeight = 48.sp,
+        letterSpacing = (-1).sp,
+        color = MetroColors.TextWhite,
+        shadow = Shadow(color = Color(0xDD000000), offset = Offset(1f, 1f), blurRadius = 3f)
+    )
+
+    val tileLargeHeader = TextStyle(
+        fontFamily = SegoeUiFontFamily,
+        fontWeight = FontWeight.Light,
+        fontSize = 32.sp,
+        lineHeight = 36.sp,
+        letterSpacing = (-0.5).sp,
+        color = MetroColors.TextWhite,
+        shadow = Shadow(color = Color(0xDD000000), offset = Offset(1f, 1f), blurRadius = 3f)
+    )
+
+    val tileSubtext = TextStyle(
+        fontFamily = SegoeUiFontFamily,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.5.sp,
+        lineHeight = 15.sp,
+        color = MetroColors.TextWhite,
+        shadow = Shadow(color = Color(0xDD000000), offset = Offset(1f, 1f), blurRadius = 3f)
+    )
+
     val appListGroupHeader = TextStyle(
         fontFamily = SegoeUiFontFamily,
         fontWeight = FontWeight.Light,

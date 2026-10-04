@@ -943,4 +943,72 @@ object MetroIcons {
             }
         }.build()
     }
+
+    val Play: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "MetroPlay",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(fill = SolidColor(Color.White)) {
+                moveTo(8f, 5f)
+                lineTo(19f, 12f)
+                lineTo(8f, 19f)
+                close()
+            }
+        }.build()
+    }
+
+    val Pause: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "MetroPause",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(fill = SolidColor(Color.White)) {
+                // Left bar
+                moveTo(6f, 5f); lineTo(10f, 5f); lineTo(10f, 19f); lineTo(6f, 19f); close()
+                // Right bar
+                moveTo(14f, 5f); lineTo(18f, 5f); lineTo(18f, 19f); lineTo(14f, 19f); close()
+            }
+        }.build()
+    }
+
+    val SkipNext: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "MetroSkipNext",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(fill = SolidColor(Color.White)) {
+                // Triangle
+                moveTo(6f, 5f); lineTo(16f, 12f); lineTo(6f, 19f); close()
+                // End bar
+                moveTo(17f, 5f); lineTo(19.5f, 5f); lineTo(19.5f, 19f); lineTo(17f, 19f); close()
+            }
+        }.build()
+    }
+
+    val SkipPrevious: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "MetroSkipPrevious",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(fill = SolidColor(Color.White)) {
+                // Start bar
+                moveTo(4.5f, 5f); lineTo(7f, 5f); lineTo(7f, 19f); lineTo(4.5f, 19f); close()
+                // Left Triangle
+                moveTo(18f, 5f); lineTo(8f, 12f); lineTo(18f, 19f); close()
+            }
+        }.build()
+    }
 }
