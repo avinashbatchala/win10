@@ -389,4 +389,19 @@ class ExampleUnitTest {
             }
         }
     }
+
+    @Test
+    fun resizePreservesTileListOrder() {
+        val tiles = listOf(
+            tile("a", TileSize.SMALL, col = 0, row = 0),
+            tile("b", TileSize.MEDIUM, col = 2, row = 0),
+            tile("c", TileSize.SMALL, col = 4, row = 0)
+        )
+
+        // Resizing the middle tile must not reorder the list, so UI per-tile state
+        // (keyed by id) stays stable without a navigation-driven re-render.
+        val resized = GridManager.resizeTile("b", TileSize.WIDE, tiles, 6)
+        assertEquals(listOf("a", "b", "c"), resized.map { it.id })
+        assertGridInvariants(resized, 6)
+    }
 }

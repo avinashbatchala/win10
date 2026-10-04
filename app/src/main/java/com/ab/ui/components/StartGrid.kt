@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -149,6 +150,9 @@ fun StartGrid(
                     .height(totalGridHeight)
             ) {
             for (tile in tiles) {
+                // Key by tile id so per-tile remembered state (live face, press, animations)
+                // follows the tile when the list is reordered by resize/move.
+                key(tile.id) {
                 val isSelected = isEditMode && selectedTileId == tile.id
                 val isDragging = draggedTileId == tile.id
                 val icon = getLauncherIcon(tile.packageName, tile.activityName)
@@ -279,6 +283,7 @@ fun StartGrid(
                             onTileUnpin(tile.id)
                         }
                     )
+                }
                 }
             }
             }

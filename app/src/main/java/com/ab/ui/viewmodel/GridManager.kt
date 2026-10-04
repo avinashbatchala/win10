@@ -142,7 +142,10 @@ object GridManager {
             }
         }
 
-        return resolved
+        // Return in the original list order so per-tile UI identity/state stays stable
+        // (the resolution above places the target first for conflict detection).
+        val resolvedById = resolved.associateBy { it.id }
+        return currentTiles.map { resolvedById[it.id] ?: it }
     }
 
     /**

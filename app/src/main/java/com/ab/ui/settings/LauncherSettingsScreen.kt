@@ -183,14 +183,14 @@ private fun PivotHeader(
     onSelect: (Int) -> Unit
 ) {
     val headerWidths = remember { mutableStateListOf(*Array(titles.size) { 0 }) }
-    val gapPx = with(androidx.compose.ui.platform.LocalDensity.current) { 28.dp.toPx() }
 
-    // Cumulative offset to align each heading to the left edge.
+    // Cumulative offset to align each heading to the left edge. Each heading's measured
+    // width already includes its trailing gap (end padding), so do NOT add the gap again.
     val offsets = IntArray(titles.size)
     var acc = 0
     for (i in titles.indices) {
         offsets[i] = acc
-        acc += headerWidths.getOrElse(i) { 0 } + gapPx.toInt()
+        acc += headerWidths.getOrElse(i) { 0 }
     }
     val endOffset = acc
 
@@ -203,6 +203,7 @@ private fun PivotHeader(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(start = SettingsPageInset)
             .clipToBounds()
     ) {
         Row(
@@ -224,7 +225,6 @@ private fun PivotHeader(
                         .onGloballyPositioned { headerWidths[index] = it.size.width }
                         .clickable { onSelect(index) }
                         .padding(
-                            start = if (index == 0) SettingsPageInset else 0.dp,
                             end = 28.dp,
                             top = 4.dp,
                             bottom = 10.dp
