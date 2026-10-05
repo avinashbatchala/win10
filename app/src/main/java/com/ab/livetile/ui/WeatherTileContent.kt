@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -82,28 +84,38 @@ private fun SmallWeather(data: com.ab.livetile.model.WeatherTileData) {
 private fun MediumWeather(data: com.ab.livetile.model.WeatherTileData, label: String) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.align(Alignment.TopStart)) {
-            Text(
-                text = data.temperatureText,
-                style = MetroTypography.tileLargeHeader.copy(fontSize = 44.sp, fontWeight = FontWeight.Light),
-                color = Color.White,
-                maxLines = 1
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = data.icon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(30.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = data.temperatureText,
+                    style = MetroTypography.tileLargeHeader.copy(fontSize = 40.sp, fontWeight = FontWeight.Light),
+                    color = Color.White,
+                    maxLines = 1
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = data.conditionText,
                 style = MetroTypography.tileSubtext.copy(fontSize = 13.sp),
-                color = Color.White.copy(alpha = 0.85f),
+                color = Color.White.copy(alpha = 0.9f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            if (data.highText != null && data.lowText != null) {
+                Text(
+                    text = "${data.highText} / ${data.lowText}",
+                    style = MetroTypography.tileSubtext.copy(fontSize = 13.sp),
+                    color = Color.White.copy(alpha = 0.85f),
+                    maxLines = 1
+                )
+            }
         }
-        Icon(
-            imageVector = data.icon,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.9f),
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .size(34.dp)
-        )
         if (label.isNotBlank()) {
             Text(
                 text = label,
@@ -123,35 +135,40 @@ private fun WideWeather(data: com.ab.livetile.model.WeatherTileData, label: Stri
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = 20.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            // Left: current conditions.
+            Column(modifier = Modifier.weight(1.2f)) {
                 Text(
                     text = data.temperatureText,
-                    style = MetroTypography.tileLargeHeader.copy(fontSize = 38.sp, fontWeight = FontWeight.Light),
+                    style = MetroTypography.tileLargeHeader.copy(fontSize = 40.sp, fontWeight = FontWeight.Light),
                     color = Color.White,
                     maxLines = 1
                 )
                 Text(
                     text = data.conditionText,
-                    style = MetroTypography.tileSubtext.copy(fontSize = 12.sp),
-                    color = Color.White.copy(alpha = 0.85f),
+                    style = MetroTypography.tileSubtext.copy(fontSize = 18.sp),
+                    color = Color.White.copy(alpha = 0.95f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (data.highText != null && data.lowText != null) {
+                    Text(
+                        text = "${data.highText} / ${data.lowText}",
+                        style = MetroTypography.tileSubtext.copy(fontSize = 13.sp),
+                        color = Color.White.copy(alpha = 0.85f),
+                        maxLines = 1
+                    )
+                }
             }
-            if (data.days.isEmpty()) {
-                Icon(
-                    imageVector = data.icon,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.9f),
-                    modifier = Modifier
-                        .size(44.dp)
-                        .padding(end = 8.dp)
-                )
-            } else {
-                data.days.take(3).forEach { day ->
-                    ForecastColumn(day, Modifier.weight(1f), compact = true)
+            Spacer(modifier = Modifier.width(10.dp))
+            // Right: three-day forecast.
+            if (data.days.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.weight(2f),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    data.days.take(3).forEach { day -> ForecastColumn(day, Modifier.weight(1f)) }
                 }
             }
         }
@@ -184,8 +201,8 @@ private fun LargeWeather(data: com.ab.livetile.model.WeatherTileData, label: Str
                     )
                     Text(
                         text = data.conditionText,
-                        style = MetroTypography.tileSubtext.copy(fontSize = 15.sp),
-                        color = Color.White.copy(alpha = 0.9f),
+                        style = MetroTypography.tileSubtext.copy(fontSize = 18.sp),
+                        color = Color.White.copy(alpha = 0.95f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -193,7 +210,7 @@ private fun LargeWeather(data: com.ab.livetile.model.WeatherTileData, label: Str
                 Icon(
                     imageVector = data.icon,
                     contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.9f),
+                    tint = Color.White,
                     modifier = Modifier.size(52.dp)
                 )
             }
@@ -202,7 +219,7 @@ private fun LargeWeather(data: com.ab.livetile.model.WeatherTileData, label: Str
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     data.days.take(3).forEach { day -> ForecastColumn(day, Modifier.weight(1f)) }
                 }
@@ -219,44 +236,31 @@ private fun LargeWeather(data: com.ab.livetile.model.WeatherTileData, label: Str
 }
 
 @Composable
-private fun ForecastColumn(day: WeatherDay, modifier: Modifier = Modifier, compact: Boolean = false) {
+private fun ForecastColumn(day: WeatherDay, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = day.label,
-            style = MetroTypography.tileSubtext.copy(fontSize = if (compact) 11.sp else 12.sp),
-            color = Color.White.copy(alpha = 0.8f),
+            style = MetroTypography.tileSubtext.copy(fontSize = 13.sp),
+            color = Color.White.copy(alpha = 0.9f),
             maxLines = 1
         )
         Icon(
             imageVector = day.icon,
             contentDescription = null,
-            tint = Color.White.copy(alpha = 0.9f),
+            tint = Color.White,
             modifier = Modifier
-                .padding(vertical = if (compact) 1.dp else 2.dp)
-                .size(if (compact) 18.dp else 22.dp)
+                .padding(vertical = 2.dp)
+                .size(22.dp)
         )
         Text(
-            text = day.highText,
-            style = MetroTypography.tileLabel.copy(fontSize = if (compact) 12.sp else 13.sp),
-            color = Color.White,
-            maxLines = 1
+            text = "${day.highText} / ${day.lowText}",
+            style = MetroTypography.tileSubtext.copy(fontSize = 13.sp),
+            color = Color.White.copy(alpha = 0.85f),
+            textAlign = TextAlign.Center,
+            maxLines = 2
         )
-        Text(
-            text = day.lowText,
-            style = MetroTypography.tileSubtext.copy(fontSize = if (compact) 11.sp else 12.sp),
-            color = Color.White.copy(alpha = 0.75f),
-            maxLines = 1
-        )
-        if (!compact && day.precipChance != null && day.precipChance > 0) {
-            Text(
-                text = "${day.precipChance}%",
-                style = MetroTypography.tileSubtext.copy(fontSize = 11.sp),
-                color = Color.White.copy(alpha = 0.65f),
-                maxLines = 1
-            )
-        }
     }
 }
