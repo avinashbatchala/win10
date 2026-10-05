@@ -80,6 +80,8 @@ googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.W
 dependencies {
   // Shared Windows Metro design system (composite build at MetroSuite/design).
   implementation("com.metro:metro-ui")
+  // Cross-APK live tile protocol (composite build at MetroSuite/shared/live-tile-contract).
+  implementation("com.metro:live-tile-contract")
   implementation(platform(libs.androidx.compose.bom))
   implementation(platform(libs.firebase.bom))
   // implementation(libs.accompanist.permissions)

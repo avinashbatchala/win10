@@ -28,3 +28,5 @@ include(":app")
 
 // Shared Windows Metro design system (MetroSuite/design), consumed as a composite build.
 includeBuild("../../design")
+// Cross-APK live tile protocol (MetroSuite/shared/live-tile-contract).
+includeBuild("../../shared/live-tile-contract")

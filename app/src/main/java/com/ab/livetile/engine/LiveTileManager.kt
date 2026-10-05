@@ -1,10 +1,14 @@
 package com.ab.livetile.engine
 
 import android.content.Context
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.ab.livetile.api.LiveTileProvider
 import com.ab.livetile.model.LiveTileState
 import com.ab.livetile.providers.MediaLiveTileProvider
+import com.ab.livetile.providers.MetroClockTileClient
 import com.ab.media.MediaSessionRepository
 import com.ab.model.TileModel
 import com.ab.model.TileSize
@@ -51,6 +55,9 @@ class LiveTileManager(
 
     // Background periodic refresh jobs
     private val refreshJobs = ConcurrentHashMap<String, Job>()
+
+    // Cross-APK invalidation observer (MetroClock notifies its content URI on state changes).
+    private var externalObserver: ContentObserver? = null
 
     // Face rotation scheduler
     private val scheduler = LiveTileScheduler(scope) { targetKey ->
@@ -240,6 +247,7 @@ class LiveTileManager(
 
     fun onStart() {
         registry.getAllProviders().forEach { it.onStart(context) }
+        registerExternalObserver()
         // Respect battery saver if the user asked us to.
         if (!(isBatterySaverOn() && shouldPauseInBatterySaver())) {
             scheduler.resume()
@@ -263,6 +271,44 @@ class LiveTileManager(
         if (shouldPauseWhenHidden()) {
             scheduler.pause()
         }
+        unregisterExternalObserver()
         registry.getAllProviders().forEach { it.onStop(context) }
+    }
+
+    /**
+     * Observe MetroClock's content URI so timer/stopwatch/alarm transitions refresh the tile
+     * immediately, without polling the Clock app once per second.
+     */
+    private fun registerExternalObserver() {
+        if (externalObserver != null) return
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                scope.launch(Dispatchers.IO) { refreshProviderTiles(MetroClockTileClient.PROVIDER_ID) }
+            }
+        }
+        try {
+            context.contentResolver.registerContentObserver(MetroClockTileClient.URI, false, observer)
+            externalObserver = observer
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to observe ${MetroClockTileClient.URI}", e)
+        }
+    }
+
+    private fun unregisterExternalObserver() {
+        val observer = externalObserver ?: return
+        try {
+            context.contentResolver.unregisterContentObserver(observer)
+        } catch (_: Exception) {
+        }
+        externalObserver = null
+    }
+
+    private suspend fun refreshProviderTiles(providerId: String) {
+        tileModels.forEach { (key, tile) ->
+            val provider = activeTileProviders[key] ?: return@forEach
+            if (provider.providerId == providerId) {
+                refreshTileState(key, tile, provider)
+            }
+        }
     }
 }

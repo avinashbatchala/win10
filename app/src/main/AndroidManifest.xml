@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
+    <!-- Read MetroClock's live tile state (signature-protected, MetroSuite apps only). -->
+    <uses-permission android:name="com.metro.permission.READ_TILE_STATE" />
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.INTERNET" />
 

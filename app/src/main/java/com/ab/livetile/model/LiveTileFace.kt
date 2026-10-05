@@ -21,5 +21,7 @@ data class LiveTileFace(
     val labelOverride: String? = null,
     val mediaState: com.ab.media.MediaSessionUiState? = null,
     val weather: WeatherTileData? = null,
+    /** When set, the launcher interpolates the primary text locally (timer/stopwatch). */
+    val liveClock: LiveClock? = null,
     val accessibilityDescription: String
 )

@@ -21,8 +21,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ab.livetile.model.LiveClockKind
 import com.ab.livetile.model.LiveTileFace
 import com.ab.livetile.model.LiveTileState
 import com.ab.livetile.model.LiveTileTemplate
@@ -94,6 +97,28 @@ fun LiveTileRenderer(
         }
     }
 
+    // Local interpolation for active timer/stopwatch faces: the visible value is recomputed
+    // in the launcher from monotonic time, so the owning app never pushes a tick per second.
+    // withFrameNanos suspends while the tile is not being drawn (backgrounded), so ticking
+    // pauses naturally and resumes from the authoritative timestamps.
+    val resolvedFace = displayedFace.liveClock?.let { clock ->
+        val nowElapsed by produceState(
+            initialValue = android.os.SystemClock.elapsedRealtime(),
+            key1 = clock
+        ) {
+            while (true) {
+                withFrameNanos { }
+                val now = android.os.SystemClock.elapsedRealtime()
+                if (now - value >= 100L) value = now
+            }
+        }
+        val text = when (clock.kind) {
+            LiveClockKind.COUNTDOWN -> formatCountdown(clock.remainingMillis(nowElapsed))
+            LiveClockKind.STOPWATCH -> formatStopwatch(clock.elapsedMillis(nowElapsed))
+        }
+        displayedFace.copy(primaryText = text)
+    } ?: displayedFace
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -102,17 +127,43 @@ fun LiveTileRenderer(
                 cameraDistance = 14f * density
             }
             .semantics {
-                contentDescription = displayedFace.accessibilityDescription
+                contentDescription = resolvedFace.accessibilityDescription
             }
     ) {
         RenderTemplate(
-            face = displayedFace,
+            face = resolvedFace,
             tileSize = tileSize,
             defaultLabel = defaultLabel,
             dispatcher = dispatcher,
             mediaShowControls = mediaShowControls,
             mediaShowProgress = mediaShowProgress
         )
+    }
+}
+
+private fun formatCountdown(ms: Long): String {
+    val totalSeconds = (ms / 1000L).coerceAtLeast(0L)
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        String.format(java.util.Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format(java.util.Locale.US, "%02d:%02d", minutes, seconds)
+    }
+}
+
+private fun formatStopwatch(ms: Long): String {
+    val safe = ms.coerceAtLeast(0L)
+    val totalSeconds = safe / 1000L
+    val tenths = (safe % 1000L) / 100L
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        String.format(java.util.Locale.US, "%d:%02d:%02d.%d", hours, minutes, seconds, tenths)
+    } else {
+        String.format(java.util.Locale.US, "%02d:%02d.%d", minutes, seconds, tenths)
     }
 }
 
