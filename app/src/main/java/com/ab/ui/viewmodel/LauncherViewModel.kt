@@ -25,6 +25,7 @@ import com.ab.BuildConfig
 import com.ab.data.InstalledAppRepository
 import com.ab.data.LauncherPreferences
 import com.ab.model.AppIconPreference
+import com.ab.model.DisplayScale
 import com.ab.model.AppInfo
 import com.ab.model.BackgroundStyle
 import com.ab.model.IconRenderMode
@@ -896,6 +897,11 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun setShowAppNames(enabled: Boolean) {
         _settings.value = _settings.value.copy(showAppNames = enabled)
         viewModelScope.launch { preferences.updateShowAppNames(enabled) }
+    }
+
+    fun setDisplayScale(scale: DisplayScale) {
+        _settings.value = _settings.value.copy(displayScale = scale)
+        viewModelScope.launch { preferences.updateDisplayScale(scale) }
     }
 
     // ---------------------------------------------------------------------

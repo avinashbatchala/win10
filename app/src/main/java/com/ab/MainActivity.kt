@@ -15,6 +15,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import com.ab.model.LauncherOrientation
 import com.ab.ui.screens.MainLauncherScreen
 import com.ab.ui.theme.MetroTheme
@@ -53,7 +54,14 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            MetroTheme(accentColor = accentColor, darkTheme = settings.darkTheme) {
+            val screenWidthDp = LocalConfiguration.current.screenWidthDp
+            val displayScale = settings.displayScale.resolve(screenWidthDp)
+
+            MetroTheme(
+                accentColor = accentColor,
+                darkTheme = settings.darkTheme,
+                displayScale = displayScale
+            ) {
                 MainLauncherScreen(
                     viewModel = viewModel,
                     modifier = Modifier.fillMaxSize()

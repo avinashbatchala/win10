@@ -28,7 +28,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ab.model.ResolvedLauncherIcon
+import com.ab.model.TileSize
 import com.ab.ui.components.LauncherIconView
+import com.ab.ui.components.TileMetrics
 import com.ab.ui.icons.MetroIcons
 import com.ab.ui.theme.MetroColors
 import com.ab.ui.theme.MetroDimensions
@@ -165,7 +167,7 @@ fun IconGalleryScreen(modifier: Modifier = Modifier) {
                         icon = ResolvedLauncherIcon.VectorGlyph(MetroIcons.Phone, "PHONE"),
                         contentDescription = "Phone",
                         tint = Color.White,
-                        modifier = Modifier.size(MetroDimensions.tileIconSizeSmall)
+                        modifier = Modifier.size(TileMetrics.iconSize(TileSize.SMALL, 48.dp))
                     )
                 }
             }
@@ -194,7 +196,7 @@ fun IconGalleryScreen(modifier: Modifier = Modifier) {
                             icon = ResolvedLauncherIcon.VectorGlyph(MetroIcons.Phone, "PHONE"),
                             contentDescription = "Phone",
                             tint = Color.White,
-                            modifier = Modifier.size(MetroDimensions.tileIconSizeMedium)
+                            modifier = Modifier.size(TileMetrics.iconSize(TileSize.MEDIUM, 104.dp))
                         )
                     }
                     Text(

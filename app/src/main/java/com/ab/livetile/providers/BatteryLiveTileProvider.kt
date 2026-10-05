@@ -58,9 +58,11 @@ class BatteryLiveTileProvider : LiveTileProvider {
             accessibilityDescription = "Battery status: $statusText, $pct percent"
         )
 
+        // Small tiles have no room for the longer status word, so only cycle on larger sizes.
+        val faces = if (tileSize == TileSize.SMALL) listOf(face1) else listOf(face1, face2)
         return LiveTileState(
             providerId = providerId,
-            faces = listOf(face1, face2),
+            faces = faces,
             validityDurationMs = 60_000L
         )
     }

@@ -13,6 +13,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.ab.model.AppIconPreference
 import com.ab.model.BackgroundStyle
+import com.ab.model.DisplayScale
 import com.ab.model.LauncherOrientation
 import com.ab.model.LauncherSettings
 import com.ab.model.LiveTileAnimationFrequency
@@ -54,6 +55,7 @@ class LauncherPreferences(private val context: Context) {
         private val KEY_MEDIA_SHOW_CONTROLS = booleanPreferencesKey("media_show_controls")
         private val KEY_MEDIA_SHOW_PROGRESS = booleanPreferencesKey("media_show_progress")
         private val KEY_LAUNCHER_ORIENTATION = stringPreferencesKey("launcher_orientation")
+        private val KEY_DISPLAY_SCALE = stringPreferencesKey("display_scale")
     }
 
     val pinnedTilesFlow: Flow<List<TileModel>?> = context.dataStore.data.map { prefs ->
@@ -95,7 +97,8 @@ class LauncherPreferences(private val context: Context) {
             launcherOrientation = enumOrDefault(
                 prefs[KEY_LAUNCHER_ORIENTATION],
                 LauncherOrientation.PORTRAIT
-            )
+            ),
+            displayScale = enumOrDefault(prefs[KEY_DISPLAY_SCALE], DisplayScale.AUTO)
         )
     }
 
@@ -199,6 +202,10 @@ class LauncherPreferences(private val context: Context) {
 
     suspend fun updateLauncherOrientation(orientation: LauncherOrientation) {
         context.dataStore.edit { prefs -> prefs[KEY_LAUNCHER_ORIENTATION] = orientation.name }
+    }
+
+    suspend fun updateDisplayScale(scale: DisplayScale) {
+        context.dataStore.edit { prefs -> prefs[KEY_DISPLAY_SCALE] = scale.name }
     }
 
     /** Clears every persisted launcher preference, restoring factory defaults. */

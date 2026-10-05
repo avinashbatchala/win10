@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ab.model.AppIconPreference
+import com.ab.model.DisplayScale
 import com.ab.model.LauncherSettings
 import com.ab.model.LiveTileAnimationFrequency
 import com.ab.model.LauncherOrientation
@@ -178,6 +179,25 @@ internal fun TilesPivotView(
                     vm.setDefaultTileSize(TileSize.entries[index])
                 }
             )
+        })
+        add(PivotEntry.Setting("tiles.display_scale") {
+            Column {
+                Text(
+                    text = "Size of text, apps, and items",
+                    style = MetroTypography.settingsLabel.copy(color = LocalMetroForeground.current),
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                MetroRadioGroup(
+                    options = listOf("Auto", "Small", "Normal", "Large", "Extra"),
+                    selectedIndex = settings.displayScale.ordinal.coerceIn(0, DisplayScale.entries.size - 1),
+                    onSelect = { index -> vm.setDisplayScale(DisplayScale.entries[index]) }
+                )
+                Text(
+                    text = "Auto matches the Windows Phone reference for this screen size.",
+                    style = MetroTypography.settingsSubtext.copy(color = subtle),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
         })
         add(PivotEntry.Setting("tiles.app_names") {
             MetroSettingRow(

@@ -152,7 +152,7 @@ private fun IconicTemplate(face: LiveTileFace, size: TileSize, label: String) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(MetroDimensions.tileContentPadding)
+            .padding(if (size == TileSize.SMALL) MetroDimensions.tileContentPaddingSmall else MetroDimensions.tileContentPadding)
     ) {
         // Icon
         if (face.iconVector != null) {
@@ -194,7 +194,7 @@ private fun CountTemplate(face: LiveTileFace, size: TileSize, label: String) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(MetroDimensions.tileContentPadding)
+            .padding(if (size == TileSize.SMALL) MetroDimensions.tileContentPaddingSmall else MetroDimensions.tileContentPadding)
     ) {
         Column(
             modifier = Modifier.align(Alignment.CenterStart)
@@ -202,10 +202,13 @@ private fun CountTemplate(face: LiveTileFace, size: TileSize, label: String) {
             Text(
                 text = face.primaryText ?: "",
                 style = MetroTypography.tileCountNumber.copy(
-                    fontSize = if (size == TileSize.SMALL) 26.sp else 46.sp,
+                    fontSize = if (size == TileSize.SMALL) 15.sp else 46.sp,
                     fontWeight = FontWeight.Light
                 ),
-                color = Color.White
+                color = Color.White,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
             )
             if (face.secondaryText != null && size != TileSize.SMALL) {
                 Text(
@@ -234,17 +237,20 @@ private fun PrimaryTextTemplate(face: LiveTileFace, size: TileSize, label: Strin
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(MetroDimensions.tileContentPadding)
+            .padding(if (size == TileSize.SMALL) MetroDimensions.tileContentPaddingSmall else MetroDimensions.tileContentPadding)
     ) {
         when (size) {
             TileSize.SMALL -> {
                 Text(
                     text = face.primaryText ?: "",
                     style = MetroTypography.tileLabel.copy(
-                        fontSize = 18.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
                     ),
                     color = Color.White,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
@@ -261,14 +267,16 @@ private fun PrimaryTextTemplate(face: LiveTileFace, size: TileSize, label: Strin
                             fontWeight = FontWeight.Light
                         ),
                         color = Color.White,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     if (face.secondaryText != null) {
                         Text(
                             text = face.secondaryText,
                             style = MetroTypography.tileSubtext,
                             color = Color.White.copy(alpha = 0.85f),
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -295,20 +303,26 @@ private fun PrimaryTextTemplate(face: LiveTileFace, size: TileSize, label: Strin
                                 fontSize = 42.sp,
                                 fontWeight = FontWeight.Light
                             ),
-                            color = Color.White
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         if (face.secondaryText != null) {
                             Text(
                                 text = face.secondaryText,
                                 style = MetroTypography.tileSubtext.copy(fontSize = 14.sp),
-                                color = Color.White.copy(alpha = 0.9f)
+                                color = Color.White.copy(alpha = 0.9f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                         if (face.tertiaryText != null) {
                             Text(
                                 text = face.tertiaryText,
                                 style = MetroTypography.tileSubtext.copy(fontSize = 12.sp),
-                                color = Color.White.copy(alpha = 0.75f)
+                                color = Color.White.copy(alpha = 0.75f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -340,7 +354,7 @@ private fun TextLinesTemplate(face: LiveTileFace, size: TileSize, label: String)
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(MetroDimensions.tileContentPadding)
+            .padding(if (size == TileSize.SMALL) MetroDimensions.tileContentPaddingSmall else MetroDimensions.tileContentPadding)
     ) {
         Column(
             modifier = Modifier
@@ -387,17 +401,20 @@ private fun DateTemplate(face: LiveTileFace, size: TileSize, label: String) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(MetroDimensions.tileContentPadding)
+            .padding(if (size == TileSize.SMALL) MetroDimensions.tileContentPaddingSmall else MetroDimensions.tileContentPadding)
     ) {
         when (size) {
             TileSize.SMALL -> {
                 Text(
                     text = face.primaryText ?: "",
                     style = MetroTypography.tileCountNumber.copy(
-                        fontSize = 32.sp,
+                        fontSize = 28.sp,
                         fontWeight = FontWeight.Light
                     ),
                     color = Color.White,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
@@ -414,7 +431,9 @@ private fun DateTemplate(face: LiveTileFace, size: TileSize, label: String) {
                             fontWeight = FontWeight.Light,
                             lineHeight = 48.sp
                         ),
-                        color = Color.White
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     if (face.secondaryText != null) {
                         Text(
@@ -423,14 +442,9 @@ private fun DateTemplate(face: LiveTileFace, size: TileSize, label: String) {
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Normal
                             ),
-                            color = Color.White
-                        )
-                    }
-                    if (face.tertiaryText != null) {
-                        Text(
-                            text = face.tertiaryText,
-                            style = MetroTypography.tileSubtext.copy(fontSize = 13.sp),
-                            color = Color.White.copy(alpha = 0.75f)
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -457,6 +471,9 @@ private fun DateTemplate(face: LiveTileFace, size: TileSize, label: String) {
                             fontWeight = FontWeight.Light
                         ),
                         color = Color.White,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(end = 14.dp)
                     )
 
@@ -466,14 +483,18 @@ private fun DateTemplate(face: LiveTileFace, size: TileSize, label: String) {
                             Text(
                                 text = face.secondaryText,
                                 style = MetroTypography.tileLabel.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
-                                color = Color.White
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                         if (face.tertiaryText != null) {
                             Text(
                                 text = face.tertiaryText,
                                 style = MetroTypography.tileSubtext.copy(fontSize = 13.sp),
-                                color = Color.White.copy(alpha = 0.8f)
+                                color = Color.White.copy(alpha = 0.8f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                         face.textLines.take(2).forEach { line ->
@@ -520,7 +541,7 @@ private fun ImageTemplate(face: LiveTileFace, size: TileSize, label: String) {
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(MetroDimensions.tileContentPadding)
+                    .padding(if (size == TileSize.SMALL) MetroDimensions.tileContentPaddingSmall else MetroDimensions.tileContentPadding)
             )
         }
     }
@@ -531,7 +552,7 @@ private fun ImageAndTextTemplate(face: LiveTileFace, size: TileSize, label: Stri
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(MetroDimensions.tileContentPadding)
+            .padding(if (size == TileSize.SMALL) MetroDimensions.tileContentPaddingSmall else MetroDimensions.tileContentPadding)
     ) {
         Row(
             modifier = Modifier

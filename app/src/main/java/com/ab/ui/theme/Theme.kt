@@ -12,6 +12,8 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.node.DelegatableNode
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 
 /**
  * Windows Metro has no touch ripple; tile taps use a scale/dim press effect instead.
@@ -37,6 +39,7 @@ val LocalMetroSubtleText = compositionLocalOf { MetroColors.TextDim }
 fun MetroTheme(
     accentColor: Color = MetroColors.Blue,
     darkTheme: Boolean = true,
+    displayScale: Float = 1f,
     content: @Composable () -> Unit
 ) {
     val bgColor = if (darkTheme) MetroColors.BackgroundBlack else MetroColors.BackgroundWhite
@@ -64,7 +67,18 @@ fun MetroTheme(
         )
     }
 
+    // Windows 10 Mobile "Size of text, apps, and items". Only the font scale is adjusted:
+    // the Start grid is proportional to screen width, so scaling density would reflow tiles
+    // and overflow their content. Scaling sp enlarges text (tiles, apps list, settings) while
+    // keeping the layout stable. Icons are sized proportionally in TileMetrics.
+    val baseDensity = LocalDensity.current
+    val scaledDensity = Density(
+        density = baseDensity.density,
+        fontScale = baseDensity.fontScale * displayScale
+    )
+
     CompositionLocalProvider(
+        LocalDensity provides scaledDensity,
         LocalMetroAccentColor provides accentColor,
         LocalMetroDarkTheme provides darkTheme,
         LocalMetroBackground provides bgColor,

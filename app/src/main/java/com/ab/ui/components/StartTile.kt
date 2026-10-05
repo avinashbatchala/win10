@@ -108,8 +108,12 @@ fun StartTile(
     val tileBgColor = if (tilePicture != null) baseColor else baseColor.copy(alpha = bgAlpha)
     val displayLabel = (tile.customLabel ?: tile.label) + (if (!tile.isAvailable) " (Unavailable)" else "")
 
+    // Windows Phone iconic tiles: the logo dominates the tile (~50-60% of its short side).
+    val tileMin = minOf(widthDp, heightDp)
+    val iconSize = TileMetrics.iconSize(tile.size, tileMin)
+
     // Edit controls shrink with the tile so the unpin + resize buttons never overlap on 1x1.
-    val tileMinDp = minOf(widthDp, heightDp).value
+    val tileMinDp = tileMin.value
     val editButtonSize = TileEditMetrics.buttonSizeDp(tileMinDp).dp
     val editIconSize = TileEditMetrics.iconSizeDp(tileMinDp).dp
     val editPadding = TileEditMetrics.paddingDp(tileMinDp).dp
@@ -182,7 +186,7 @@ fun StartTile(
                                 icon = resolvedIcon,
                                 contentDescription = tile.label,
                                 tint = Color.White,
-                                modifier = Modifier.size(MetroDimensions.tileIconSizeSmall)
+                                modifier = Modifier.size(iconSize)
                             )
                         }
                     }
@@ -196,7 +200,7 @@ fun StartTile(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(bottom = 14.dp),
+                                .padding(bottom = 16.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             if (resolvedIcon != null) {
@@ -204,7 +208,7 @@ fun StartTile(
                                     icon = resolvedIcon,
                                     contentDescription = tile.label,
                                     tint = Color.White,
-                                    modifier = Modifier.size(MetroDimensions.tileIconSizeMedium)
+                                    modifier = Modifier.size(iconSize)
                                 )
                             }
                         }
@@ -232,7 +236,7 @@ fun StartTile(
                                     icon = resolvedIcon,
                                     contentDescription = tile.label,
                                     tint = Color.White,
-                                    modifier = Modifier.size(MetroDimensions.tileIconSizeWide)
+                                    modifier = Modifier.size(iconSize)
                                 )
                             }
                         }
@@ -256,7 +260,7 @@ fun StartTile(
                                 tint = Color.White,
                                 modifier = Modifier
                                     .align(Alignment.TopStart)
-                                    .size(MetroDimensions.tileIconSizeLarge)
+                                    .size(iconSize)
                             )
                         }
 

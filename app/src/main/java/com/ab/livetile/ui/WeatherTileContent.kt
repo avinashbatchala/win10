@@ -37,7 +37,13 @@ fun WeatherTileContent(face: LiveTileFace, size: TileSize, label: String) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(MetroDimensions.tileContentPadding)
+            .padding(
+                if (size == TileSize.SMALL) {
+                    MetroDimensions.tileContentPaddingSmall
+                } else {
+                    MetroDimensions.tileContentPadding
+                }
+            )
     ) {
         when (size) {
             TileSize.SMALL -> SmallWeather(data)
@@ -59,13 +65,15 @@ private fun SmallWeather(data: com.ab.livetile.model.WeatherTileData) {
             imageVector = data.icon,
             contentDescription = null,
             tint = Color.White,
-            modifier = Modifier.size(15.dp)
+            modifier = Modifier.size(13.dp)
         )
         Text(
             text = data.temperatureText,
-            style = MetroTypography.tileCountNumber.copy(fontSize = 19.sp, fontWeight = FontWeight.Light),
+            style = MetroTypography.tileCountNumber.copy(fontSize = 16.sp, fontWeight = FontWeight.Light),
             color = Color.White,
-            maxLines = 1
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

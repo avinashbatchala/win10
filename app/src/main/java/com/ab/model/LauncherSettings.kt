@@ -27,6 +27,24 @@ enum class LauncherOrientation {
     FOLLOW_SYSTEM
 }
 
+/**
+ * Windows 10 Mobile "Size of text, apps, and items" display scale. Applied to the whole
+ * launcher through a density override so tiles, text, icons and lists all scale together.
+ * [AUTO] follows the device width relative to the 360dp Windows Phone reference.
+ */
+enum class DisplayScale(val multiplier: Float) {
+    AUTO(0f),
+    SMALL(0.9f),
+    NORMAL(1.0f),
+    LARGE(1.15f),
+    EXTRA(1.3f);
+
+    fun resolve(screenWidthDp: Int): Float = when (this) {
+        AUTO -> (screenWidthDp / 360f).coerceIn(0.9f, 1.35f)
+        else -> multiplier
+    }
+}
+
 data class LauncherSettings(
     val accentColor: Long = 0xFF0078D7L, // Windows Lumia Blue
     val darkTheme: Boolean = true,
@@ -59,5 +77,6 @@ data class LauncherSettings(
     val mediaShowProgress: Boolean = true,
 
     // System
-    val launcherOrientation: LauncherOrientation = LauncherOrientation.PORTRAIT
+    val launcherOrientation: LauncherOrientation = LauncherOrientation.PORTRAIT,
+    val displayScale: DisplayScale = DisplayScale.AUTO
 )

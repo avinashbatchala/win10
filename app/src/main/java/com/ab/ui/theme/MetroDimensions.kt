@@ -11,6 +11,7 @@ object MetroDimensions {
 
     // Tile inner padding
     val tileContentPadding = 8.dp
+    val tileContentPaddingSmall = 4.dp
     val tileIconSizeSmall = 26.dp
     val tileIconSizeMedium = 38.dp
     val tileIconSizeWide = 42.dp
