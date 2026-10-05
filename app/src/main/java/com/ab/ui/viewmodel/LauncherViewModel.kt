@@ -55,6 +55,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         private const val TAG_UNINSTALL = "LauncherUninstall"
         private const val TAG_PACKAGE = "LauncherPackage"
         private const val TAG_WALLPAPER = "LauncherWallpaper"
+        const val METRO_WEATHER_PACKAGE = "com.metroweather.app"
     }
 
     private val repository = InstalledAppRepository(application, viewModelScope)
@@ -218,19 +219,23 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                         preferences.savePinnedTiles(defaultTiles)
                     } else {
                         val installedPkgs = apps.map { it.packageName }.toSet()
+                        // Launcher-owned system tiles (weather, now playing, clock, …) are not
+                        // installed packages, so they must never be treated as "uninstalled".
+                        val systemPkgs = SystemTiles.ALL.map { it.packageName }.toSet()
+                        val isPresent = { pkg: String -> installedPkgs.contains(pkg) || systemPkgs.contains(pkg) }
                         val currentTiles = _pinnedTiles.value
-                        val hasRemovedTiles = currentTiles.any { !installedPkgs.contains(it.packageName) }
+                        val hasRemovedTiles = currentTiles.any { !isPresent(it.packageName) }
 
                         if (hasRemovedTiles) {
                             Log.d(TAG_PACKAGE, "Detected package removal. Purging uninstalled tiles and updating Start layout.")
-                            val remainingTiles = currentTiles.filter { installedPkgs.contains(it.packageName) }
+                            val remainingTiles = currentTiles.filter { isPresent(it.packageName) }
                             val totalCols = if (_settings.value.showMoreTiles) 8 else 6
                             val compacted = GridManager.compactGrid(remainingTiles, totalCols)
                             _pinnedTiles.value = compacted
                             saveTiles(compacted)
                         } else {
                             val updated = currentTiles.map { tile ->
-                                tile.copy(isAvailable = installedPkgs.contains(tile.packageName))
+                                tile.copy(isAvailable = isPresent(tile.packageName))
                             }
                             if (updated != currentTiles) {
                                 _pinnedTiles.value = updated
@@ -554,6 +559,24 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             val appName = label.ifEmpty { packageName }
             Toast.makeText(context, "$appName is no longer available", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /**
+     * Opens the MetroWeather companion app for the launcher-owned weather tile.
+     * Falls back to a hint if MetroWeather is not installed.
+     */
+    fun launchWeatherApp(context: Context, label: String = "Weather") {
+        val pm = context.packageManager
+        try {
+            val intent = pm.getLaunchIntentForPackage(METRO_WEATHER_PACKAGE)
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+                context.startActivity(intent)
+                return
+            }
+        } catch (_: Exception) {
+        }
+        Toast.makeText(context, "Install MetroWeather to see the full forecast", Toast.LENGTH_SHORT).show()
     }
 
     fun uninstallApp(context: Context, packageName: String) {

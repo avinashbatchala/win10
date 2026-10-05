@@ -6,6 +6,11 @@
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Allows the MetroWeather companion app to pin the launcher's Weather tile. -->
+    <permission
+        android:name="com.ab.permission.PIN_WEATHER_TILE"
+        android:protectionLevel="normal" />
+
     <queries>
         <intent>
             <action android:name="android.intent.action.DELETE" />
@@ -40,6 +45,18 @@
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".synergy.PinWeatherTileActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="com.ab.action.PIN_WEATHER_TILE" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
 

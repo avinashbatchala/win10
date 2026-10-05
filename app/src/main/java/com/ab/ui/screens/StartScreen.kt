@@ -93,13 +93,19 @@ fun StartScreen(
                         if (isEditMode) {
                             viewModel.onTileClickedInEdit(tile.id)
                         } else {
-                            if (tile.packageName == "livetile.nowplaying") {
-                                val primaryPkg = viewModel.mediaSessionRepository.primarySession.value?.packageName
-                                if (primaryPkg != null) {
-                                    viewModel.launchApp(viewModel.getApplication(), primaryPkg, "", tile.label)
+                            when (tile.packageName) {
+                                "livetile.nowplaying" -> {
+                                    val primaryPkg = viewModel.mediaSessionRepository.primarySession.value?.packageName
+                                    if (primaryPkg != null) {
+                                        viewModel.launchApp(viewModel.getApplication(), primaryPkg, "", tile.label)
+                                    }
                                 }
-                            } else {
-                                viewModel.launchApp(viewModel.getApplication(), tile.packageName, tile.activityName, tile.label)
+                                com.ab.ui.settings.SystemTiles.WEATHER_PACKAGE -> {
+                                    viewModel.launchWeatherApp(viewModel.getApplication(), tile.label)
+                                }
+                                else -> {
+                                    viewModel.launchApp(viewModel.getApplication(), tile.packageName, tile.activityName, tile.label)
+                                }
                             }
                         }
                     },
