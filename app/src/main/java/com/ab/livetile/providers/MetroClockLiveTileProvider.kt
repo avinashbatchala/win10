@@ -13,6 +13,7 @@ import com.ab.model.TileSize
 import com.ab.ui.icons.MetroIcons
 import com.metro.livetile.contract.ClockRunState
 import com.metro.livetile.contract.ClockTileState
+import com.metro.livetile.contract.ClockTimerState
 import com.metro.livetile.contract.MetroLiveTileProtocol
 import com.metro.livetile.contract.toClockTileState
 import java.text.SimpleDateFormat
@@ -36,7 +37,8 @@ object MetroClockTileClient {
 /**
  * Turns MetroClock's domain state into generic Metro tile faces. Only state transitions are
  * fetched over IPC; active timer/stopwatch countdowns are interpolated locally by the renderer
- * via [LiveClock].
+ * via [LiveClock]. Multiple active timers/stopwatches become multiple faces, which the Live
+ * Tile engine shuffles between.
  */
 class MetroClockLiveTileProvider : LiveTileProvider {
 
@@ -53,106 +55,109 @@ class MetroClockLiveTileProvider : LiveTileProvider {
         tile: TileModel?
     ): LiveTileState? {
         val state = MetroClockTileClient.query(context) ?: return null
-        return mapToState(state, tileSize, tile?.label ?: "Clock")
+        return mapToState(state, tileSize)
     }
 
-    private fun mapToState(state: ClockTileState, size: TileSize, label: String): LiveTileState {
-        val now = Date(state.currentEpochMillis.takeIf { it > 0L } ?: System.currentTimeMillis())
-        val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
-        val timeStr = timeFmt.format(now)
-        val dayFmt = SimpleDateFormat("EEEE", Locale.getDefault())
-        val dayStr = dayFmt.format(now)
-        val dayDateFmt = SimpleDateFormat("EEEE d", Locale.getDefault())
-        val dayDateStr = dayDateFmt.format(now)
-        val longDateFmt = SimpleDateFormat("EEEE, d MMMM", Locale.getDefault())
-        val longDateStr = longDateFmt.format(now)
+    private fun mapToState(state: ClockTileState, size: TileSize): LiveTileState {
+        val faces = mutableListOf<LiveTileFace>()
 
-        val alarm = state.nextAlarm?.takeIf { it.enabled }
-        val alarmStr = alarm?.let { "next alarm ${timeFmt.format(Date(it.triggerEpochMillis))}" }
+        state.activeTimers.forEach { timer ->
+            val live = LiveClock(
+                kind = LiveClockKind.COUNTDOWN,
+                endElapsedRealtime = timer.endElapsedRealtime,
+                paused = timer.state == ClockRunState.PAUSED,
+                pausedRemainingMillis = timer.remainingWhenPausedMillis
+            )
+            val initial = initialRemaining(timer)
+            faces += LiveTileFace(
+                template = LiveTileTemplate.PRIMARY_TEXT,
+                primaryText = initial,
+                secondaryText = timerSubtitle(timer),
+                iconVector = MetroIcons.Clock,
+                liveClock = live,
+                accessibilityDescription = "Timer $initial"
+            )
+        }
 
-        val timer = state.timer
-        val stopwatch = state.stopwatch
-
-        val face = when {
-            timer != null -> {
-                val live = LiveClock(
-                    kind = LiveClockKind.COUNTDOWN,
-                    endElapsedRealtime = timer.endElapsedRealtime,
-                    paused = timer.state == ClockRunState.PAUSED,
-                    pausedRemainingMillis = timer.remainingWhenPausedMillis
-                )
-                val initial = formatInitialRemaining(timer.state, timer.endElapsedRealtime, timer.remainingWhenPausedMillis)
-                LiveTileFace(
-                    template = LiveTileTemplate.PRIMARY_TEXT,
-                    primaryText = initial,
-                    secondaryText = "TIMER",
-                    tertiaryText = timer.label,
-                    iconVector = MetroIcons.Clock,
-                    liveClock = live,
-                    accessibilityDescription = "Timer $initial"
-                )
-            }
-            stopwatch != null -> {
-                val live = LiveClock(
+        state.activeStopwatches.forEach { sw ->
+            faces += LiveTileFace(
+                template = LiveTileTemplate.PRIMARY_TEXT,
+                primaryText = "00:00.0",
+                secondaryText = "STOPWATCH",
+                iconVector = MetroIcons.Clock,
+                liveClock = LiveClock(
                     kind = LiveClockKind.STOPWATCH,
-                    startElapsedRealtime = stopwatch.startElapsedRealtime,
-                    accumulatedMillis = stopwatch.accumulatedElapsedMillis,
-                    paused = stopwatch.state == ClockRunState.PAUSED
-                )
-                LiveTileFace(
-                    template = LiveTileTemplate.PRIMARY_TEXT,
-                    primaryText = "00:00.0",
-                    secondaryText = "STOPWATCH",
-                    iconVector = MetroIcons.Clock,
-                    liveClock = live,
-                    accessibilityDescription = "Stopwatch"
-                )
-            }
-            else -> when (size) {
-                TileSize.SMALL -> LiveTileFace(
-                    template = LiveTileTemplate.PRIMARY_TEXT,
-                    primaryText = timeStr,
-                    iconVector = MetroIcons.Clock,
-                    accessibilityDescription = "Time $timeStr"
-                )
-                TileSize.MEDIUM -> LiveTileFace(
-                    template = LiveTileTemplate.PRIMARY_TEXT,
-                    primaryText = timeStr,
-                    secondaryText = dayDateStr,
-                    iconVector = MetroIcons.Clock,
-                    accessibilityDescription = "Time $timeStr, $dayDateStr"
-                )
-                TileSize.WIDE -> LiveTileFace(
-                    template = LiveTileTemplate.PRIMARY_TEXT,
-                    primaryText = timeStr,
-                    secondaryText = longDateStr,
-                    tertiaryText = alarmStr,
-                    iconVector = MetroIcons.Clock,
-                    accessibilityDescription = "Time $timeStr, $longDateStr${alarmStr?.let { ", $it" } ?: ""}"
-                )
-                TileSize.LARGE -> LiveTileFace(
-                    template = LiveTileTemplate.PRIMARY_TEXT,
-                    primaryText = timeStr,
-                    secondaryText = longDateStr,
-                    tertiaryText = alarmStr ?: dayStr,
-                    iconVector = MetroIcons.Clock,
-                    accessibilityDescription = "Time $timeStr, $longDateStr${alarmStr?.let { ", $it" } ?: ""}"
-                )
-            }
+                    startElapsedRealtime = sw.startElapsedRealtime,
+                    accumulatedMillis = sw.accumulatedElapsedMillis,
+                    paused = sw.state == ClockRunState.PAUSED
+                ),
+                accessibilityDescription = "Stopwatch"
+            )
+        }
+
+        if (faces.isEmpty()) {
+            faces += clockFace(state, size)
         }
 
         return LiveTileState(
             providerId = providerId,
-            faces = listOf(face),
+            faces = faces,
             validityDurationMs = 60_000L
         )
     }
 
-    private fun formatInitialRemaining(state: ClockRunState, endElapsed: Long, pausedRemaining: Long): String {
-        val ms = if (state == ClockRunState.PAUSED) {
-            pausedRemaining
+    private fun timerSubtitle(timer: ClockTimerState): String =
+        timer.label?.takeIf { it.isNotBlank() }?.let { "TIMER · $it" } ?: "TIMER"
+
+    private fun clockFace(state: ClockTileState, size: TileSize): LiveTileFace {
+        val now = Date(state.currentEpochMillis.takeIf { it > 0L } ?: System.currentTimeMillis())
+        val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
+        val timeStr = timeFmt.format(now)
+        val dayStr = SimpleDateFormat("EEEE", Locale.getDefault()).format(now)
+        val dayDateStr = SimpleDateFormat("EEEE d", Locale.getDefault()).format(now)
+        val longDateStr = SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(now)
+
+        val alarm = state.nextAlarm?.takeIf { it.enabled }
+        val alarmStr = alarm?.let { "next alarm ${timeFmt.format(Date(it.triggerEpochMillis))}" }
+
+        return when (size) {
+            TileSize.SMALL -> LiveTileFace(
+                template = LiveTileTemplate.PRIMARY_TEXT,
+                primaryText = timeStr,
+                iconVector = MetroIcons.Clock,
+                accessibilityDescription = "Time $timeStr"
+            )
+            TileSize.MEDIUM -> LiveTileFace(
+                template = LiveTileTemplate.PRIMARY_TEXT,
+                primaryText = timeStr,
+                secondaryText = dayDateStr,
+                iconVector = MetroIcons.Clock,
+                accessibilityDescription = "Time $timeStr, $dayDateStr"
+            )
+            TileSize.WIDE -> LiveTileFace(
+                template = LiveTileTemplate.PRIMARY_TEXT,
+                primaryText = timeStr,
+                secondaryText = longDateStr,
+                tertiaryText = alarmStr,
+                iconVector = MetroIcons.Clock,
+                accessibilityDescription = "Time $timeStr, $longDateStr${alarmStr?.let { ", $it" } ?: ""}"
+            )
+            TileSize.LARGE -> LiveTileFace(
+                template = LiveTileTemplate.PRIMARY_TEXT,
+                primaryText = timeStr,
+                secondaryText = longDateStr,
+                tertiaryText = alarmStr ?: dayStr,
+                iconVector = MetroIcons.Clock,
+                accessibilityDescription = "Time $timeStr, $longDateStr${alarmStr?.let { ", $it" } ?: ""}"
+            )
+        }
+    }
+
+    private fun initialRemaining(timer: ClockTimerState): String {
+        val ms = if (timer.state == ClockRunState.PAUSED) {
+            timer.remainingWhenPausedMillis
         } else {
-            (endElapsed - android.os.SystemClock.elapsedRealtime()).coerceAtLeast(0L)
+            (timer.endElapsedRealtime - android.os.SystemClock.elapsedRealtime()).coerceAtLeast(0L)
         }
         val totalSeconds = ms / 1000L
         val hours = totalSeconds / 3600
