@@ -6,10 +6,11 @@ enum class TileSize(val cols: Int, val rows: Int) {
     WIDE(4, 2),
     LARGE(4, 4);
 
+    /** WP8.1 resize cycle (no large tile): medium -> small -> wide -> medium. */
     fun next(): TileSize = when (this) {
-        SMALL -> MEDIUM
-        MEDIUM -> WIDE
-        WIDE -> LARGE
-        LARGE -> SMALL
+        MEDIUM -> SMALL
+        SMALL -> WIDE
+        WIDE -> MEDIUM
+        LARGE -> MEDIUM
     }
 }

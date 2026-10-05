@@ -4,7 +4,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -106,7 +105,8 @@ fun StartTile(
     }
     val bgAlpha = (1.0f - tileTransparency).coerceIn(0.0f, 1.0f)
     val tileBgColor = if (tilePicture != null) baseColor else baseColor.copy(alpha = bgAlpha)
-    val displayLabel = (tile.customLabel ?: tile.label) + (if (!tile.isAvailable) " (Unavailable)" else "")
+    // Windows Phone tile labels are lowercase.
+    val displayLabel = ((tile.customLabel ?: tile.label) + (if (!tile.isAvailable) " (Unavailable)" else "")).lowercase()
 
     // Windows Phone tile glyph sizes are fixed (they do not scale with the tile).
     val iconSize = when (tile.size) {
@@ -116,12 +116,6 @@ fun StartTile(
         TileSize.LARGE -> MetroDimensions.tileIconSizeLarge
     }
 
-    // Edit controls shrink with the tile so the unpin + resize buttons never overlap on 1x1.
-    val tileMinDp = minOf(widthDp, heightDp).value
-    val editButtonSize = TileEditMetrics.buttonSizeDp(tileMinDp).dp
-    val editIconSize = TileEditMetrics.iconSizeDp(tileMinDp).dp
-    val editPadding = TileEditMetrics.paddingDp(tileMinDp).dp
-
     Box(
         modifier = modifier
             .testTag("tile_${tile.packageName}")
@@ -129,14 +123,8 @@ fun StartTile(
             .scale(pressScale)
             .alpha(editAlpha)
             .background(tileBgColor, RectangleShape)
-            .clipToBounds()
-            .then(
-                if (isEditMode && isSelected) {
-                    Modifier.border(2.dp, Color.White, RectangleShape)
-                } else {
-                    Modifier
-                }
-            )
+            // Selected tiles must not clip so the circular edit controls can sit outside the corners.
+            .then(if (isEditMode && isSelected) Modifier else Modifier.clipToBounds())
             .pointerInput(isEditMode) {
                 if (isEditMode) {
                     detectTapGestures(
@@ -280,24 +268,20 @@ fun StartTile(
             }
         }
 
-        // Edit mode controls with authentic Metro glyphs, scaled to the tile size.
+        // WP8.1 edit controls: white circles just outside the tile's right corners.
         if (isEditMode && isSelected) {
             TileUnpinButton(
                 onUnpin = onUnpin,
-                buttonSize = editButtonSize,
-                iconSize = editIconSize,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(editPadding)
+                    .offset(x = 12.dp, y = (-12).dp)
             )
 
             TileResizeButton(
                 onResize = onResize,
-                buttonSize = editButtonSize,
-                iconSize = editIconSize,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(editPadding)
+                    .offset(x = 12.dp, y = 12.dp)
             )
         }
     }

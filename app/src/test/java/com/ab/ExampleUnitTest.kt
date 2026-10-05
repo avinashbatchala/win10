@@ -400,25 +400,11 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun tileEditControlsFitSmallTilesInBothGridDensities() {
-        // 8-column SMALL tile is the tightest case (~34dp); 6-column is ~48dp.
-        for (tileMinDp in listOf(34f, 48f, 56.7f)) {
-            assertTrue(
-                "controls must not overlap at ${tileMinDp}dp",
-                com.ab.ui.components.TileEditMetrics.controlsFit(tileMinDp)
-            )
-        }
-        // Medium/large tiles keep the full 32dp control.
-        assertEquals(32f, com.ab.ui.components.TileEditMetrics.buttonSizeDp(120f), 0.001f)
-    }
-
-    @Test
-    fun tileEditControlsShrinkMonotonicallyWithTile() {
-        val small = com.ab.ui.components.TileEditMetrics.buttonSizeDp(34f)
-        val medium = com.ab.ui.components.TileEditMetrics.buttonSizeDp(48f)
-        val large = com.ab.ui.components.TileEditMetrics.buttonSizeDp(120f)
-        assertTrue(small < medium)
-        assertTrue(medium < large)
+    fun resizeCycleMatchesWindowsPhone81() {
+        // WP8.1 has only small/medium/wide: medium -> small -> wide -> medium.
+        assertEquals(TileSize.SMALL, TileSize.MEDIUM.next())
+        assertEquals(TileSize.WIDE, TileSize.SMALL.next())
+        assertEquals(TileSize.MEDIUM, TileSize.WIDE.next())
     }
 
     @Test
