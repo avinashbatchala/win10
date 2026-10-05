@@ -20,5 +20,6 @@ data class LiveTileFace(
     val imageUri: String? = null,
     val labelOverride: String? = null,
     val mediaState: com.ab.media.MediaSessionUiState? = null,
+    val weather: WeatherTileData? = null,
     val accessibilityDescription: String
 )

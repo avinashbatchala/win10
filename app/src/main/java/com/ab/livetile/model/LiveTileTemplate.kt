@@ -46,5 +46,11 @@ enum class LiveTileTemplate {
      * Windows 10 Mobile Now Playing media template with artwork, track metadata,
      * transport playback controls, and interpolated progress.
      */
-    MEDIA
+    MEDIA,
+
+    /**
+     * Windows 10 Mobile MSN Weather template: current temperature + condition glyph,
+     * with a 3-day forecast on wide/large tiles. Data comes from [WeatherTileData].
+     */
+    WEATHER
 }

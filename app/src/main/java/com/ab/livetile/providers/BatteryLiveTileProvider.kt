@@ -6,6 +6,7 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import com.ab.livetile.api.LiveTileProvider
 import com.ab.livetile.model.LiveTileFace
+import com.ab.model.TileModel
 import com.ab.livetile.model.LiveTileState
 import com.ab.livetile.model.LiveTileTemplate
 import com.ab.model.TileSize
@@ -22,7 +23,7 @@ class BatteryLiveTileProvider : LiveTileProvider {
         return pkg == "livetile.demo.battery"
     }
 
-    override suspend fun getLiveTileState(context: Context, tileSize: TileSize): LiveTileState? {
+    override suspend fun getLiveTileState(context: Context, tileSize: TileSize, tile: TileModel?): LiveTileState? {
         val intent = try {
             context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         } catch (_: Exception) {

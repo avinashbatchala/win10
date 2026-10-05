@@ -26,6 +26,10 @@ class PinWeatherTileActivity : ComponentActivity() {
         const val PERMISSION_PIN_WEATHER_TILE = "com.ab.permission.PIN_WEATHER_TILE"
         const val EXTRA_PLACE_LABEL = "place_label"
         const val EXTRA_SIZE = "size"
+        const val EXTRA_LATITUDE = "lat"
+        const val EXTRA_LONGITUDE = "lon"
+        const val EXTRA_TIMEZONE = "tz"
+        const val EXTRA_LOCATION_ID = "lid"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,6 +37,10 @@ class PinWeatherTileActivity : ComponentActivity() {
 
         val placeLabel = intent.getStringExtra(EXTRA_PLACE_LABEL)
         val requestedSize = intent.getStringExtra(EXTRA_SIZE)
+        val latitude = if (intent.hasExtra(EXTRA_LATITUDE)) intent.getDoubleExtra(EXTRA_LATITUDE, Double.NaN) else null
+        val longitude = if (intent.hasExtra(EXTRA_LONGITUDE)) intent.getDoubleExtra(EXTRA_LONGITUDE, Double.NaN) else null
+        val timezone = intent.getStringExtra(EXTRA_TIMEZONE)
+        val locationId = intent.getStringExtra(EXTRA_LOCATION_ID)
 
         lifecycleScope.launch {
             try {
@@ -62,7 +70,11 @@ class PinWeatherTileActivity : ComponentActivity() {
                             size = size,
                             col = col,
                             row = row,
-                            order = (current.maxOfOrNull { it.order } ?: 0) + 1
+                            order = (current.maxOfOrNull { it.order } ?: 0) + 1,
+                            weatherLat = latitude?.takeIf { !it.isNaN() },
+                            weatherLon = longitude?.takeIf { !it.isNaN() },
+                            weatherTimezone = timezone,
+                            weatherLocationId = locationId
                         )
                     )
                     prefs.savePinnedTiles(current)

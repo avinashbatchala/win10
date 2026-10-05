@@ -2,10 +2,14 @@ package com.ab.livetile.providers
 
 import android.content.Context
 import android.util.Log
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.ab.livetile.api.LiveTileProvider
 import com.ab.livetile.model.LiveTileFace
 import com.ab.livetile.model.LiveTileState
 import com.ab.livetile.model.LiveTileTemplate
+import com.ab.livetile.model.WeatherDay
+import com.ab.livetile.model.WeatherTileData
+import com.ab.model.TileModel
 import com.ab.model.TileSize
 import com.ab.ui.icons.MetroIcons
 import kotlinx.coroutines.Dispatchers
@@ -13,19 +17,22 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 
 /**
- * Launcher-owned weather Live Tile.
+ * Launcher-owned Windows 10 Mobile weather Live Tile.
  *
- * Data is fully automatic and keyless:
- *  1. Approximate the device's location from its public IP (ipwho.is, then geojs fallback).
- *  2. Fetch current conditions + today's high/low from Open-Meteo.
+ * When the tile carries a pinned city (latitude/longitude/timezone from MetroWeather) that
+ * city's weather is fetched directly from Open-Meteo, so a pinned city is never mixed with an
+ * IP-detected one. The generic launcher-owned Weather tile (no coordinates) falls back to
+ * approximating the device location from its public IP.
  *
- * No runtime location permission is required, and no API key is bundled. Matches any
- * installed package whose name contains "weather" (e.g. a third-party weather app) as well
- * as the launcher-owned "Weather" system tile.
+ * Faces follow the WP10 MSN Weather tile: current conditions, flipping to a short forecast
+ * (three days on wide/large tiles).
  */
 class WeatherLiveTileProvider : LiveTileProvider {
 
@@ -33,6 +40,7 @@ class WeatherLiveTileProvider : LiveTileProvider {
         const val WEATHER_PACKAGE = "livetile.demo.weather"
         private const val TAG = "WeatherTile"
         private const val LOCATION_TTL_MS = 6 * 60 * 60 * 1000L
+        private const val WEATHER_TTL_MS = 30 * 60 * 1000L
     }
 
     override val providerId: String = "livetile.system.weather"
@@ -46,34 +54,13 @@ class WeatherLiveTileProvider : LiveTileProvider {
             .build()
     }
 
-    @Volatile
-    private var cachedLatitude: Double? = null
-
-    @Volatile
-    private var cachedLongitude: Double? = null
-
-    @Volatile
-    private var cachedCity: String? = null
-
-    @Volatile
-    private var locationFetchedAt: Long = 0L
-
-    override fun matchesComponent(packageName: String, activityName: String?): Boolean {
-        val pkg = packageName.lowercase()
-        return pkg == WEATHER_PACKAGE || pkg.contains("weather")
-    }
-
-    override suspend fun getLiveTileState(context: Context, tileSize: TileSize): LiveTileState? =
-        withContext(Dispatchers.IO) {
-            try {
-                val location = resolveLocation() ?: return@withContext null
-                val snapshot = fetchWeather(location.first, location.second) ?: return@withContext null
-                buildState(snapshot, tileSize)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to build weather tile", e)
-                null
-            }
-        }
+    private data class DaySnapshot(
+        val date: String,
+        val code: Int,
+        val maxC: Double,
+        val minC: Double,
+        val precipChance: Int?
+    )
 
     private data class WeatherSnapshot(
         val temperatureC: Double,
@@ -82,18 +69,78 @@ class WeatherLiveTileProvider : LiveTileProvider {
         val windKmh: Double,
         val maxC: Double,
         val minC: Double,
-        val city: String?
+        val city: String?,
+        val days: List<DaySnapshot>
     )
 
-    private fun resolveLocation(): Pair<Double, Double>? {
+    private data class Cached(val snapshot: WeatherSnapshot, val fetchedAt: Long)
+
+    // Per-tile cache: a re-pinned city (new tile id) never sees the previous city's data.
+    private val cache = ConcurrentHashMap<String, Cached>()
+
+    @Volatile
+    private var ipLatitude: Double? = null
+
+    @Volatile
+    private var ipLongitude: Double? = null
+
+    @Volatile
+    private var ipCity: String? = null
+
+    @Volatile
+    private var ipFetchedAt: Long = 0L
+
+    override fun matchesComponent(packageName: String, activityName: String?): Boolean {
+        val pkg = packageName.lowercase()
+        return pkg == WEATHER_PACKAGE || pkg.contains("weather")
+    }
+
+    override suspend fun getLiveTileState(
+        context: Context,
+        tileSize: TileSize,
+        tile: TileModel?
+    ): LiveTileState? = withContext(Dispatchers.IO) {
+        try {
+            val key = tile?.id ?: "default"
+            val cached = cache[key]
+            val now = System.currentTimeMillis()
+            val snapshot = if (cached != null && now - cached.fetchedAt < WEATHER_TTL_MS) {
+                cached.snapshot
+            } else {
+                val coords = resolveCoordinates(tile) ?: return@withContext null
+                val fresh = fetchWeather(coords.first, coords.second, coords.third) ?: return@withContext null
+                cache[key] = Cached(fresh, now)
+                fresh
+            }
+            buildState(snapshot, tileSize, tile)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to build weather tile", e)
+            null
+        }
+    }
+
+    /**
+     * Resolves the coordinates to use for a tile: the pinned city when present, otherwise the
+     * IP-approximated device location. Returns (lat, lon, timezoneCity).
+     */
+    private fun resolveCoordinates(tile: TileModel?): Triple<Double, Double, String?>? {
+        val lat = tile?.weatherLat
+        val lon = tile?.weatherLon
+        if (lat != null && lon != null) {
+            return Triple(lat, lon, null)
+        }
+        val ip = resolveIpLocation() ?: return null
+        return Triple(ip.first, ip.second, ipCity)
+    }
+
+    private fun resolveIpLocation(): Pair<Double, Double>? {
         val now = System.currentTimeMillis()
-        val lat = cachedLatitude
-        val lon = cachedLongitude
-        if (lat != null && lon != null && now - locationFetchedAt < LOCATION_TTL_MS) {
+        val lat = ipLatitude
+        val lon = ipLongitude
+        if (lat != null && lon != null && now - ipFetchedAt < LOCATION_TTL_MS) {
             return lat to lon
         }
 
-        // Primary: ipwho.is (free, keyless)
         fetchJson("https://ipwho.is/")?.let { body ->
             try {
                 val json = JSONObject(body)
@@ -101,7 +148,7 @@ class WeatherLiveTileProvider : LiveTileProvider {
                     val latitude = json.optDouble("latitude", Double.NaN)
                     val longitude = json.optDouble("longitude", Double.NaN)
                     if (!latitude.isNaN() && !longitude.isNaN()) {
-                        cacheLocation(latitude, longitude, json.optString("city").ifBlank { null })
+                        cacheIp(latitude, longitude, json.optString("city").ifBlank { null })
                         return latitude to longitude
                     }
                 }
@@ -109,14 +156,13 @@ class WeatherLiveTileProvider : LiveTileProvider {
             }
         }
 
-        // Fallback: geojs (free, keyless)
         fetchJson("https://get.geojs.io/v1/ip/geo.json")?.let { body ->
             try {
                 val json = JSONObject(body)
                 val latitude = json.optString("latitude").toDoubleOrNull()
                 val longitude = json.optString("longitude").toDoubleOrNull()
                 if (latitude != null && longitude != null) {
-                    cacheLocation(latitude, longitude, json.optString("city").ifBlank { null })
+                    cacheIp(latitude, longitude, json.optString("city").ifBlank { null })
                     return latitude to longitude
                 }
             } catch (_: Exception) {
@@ -126,31 +172,57 @@ class WeatherLiveTileProvider : LiveTileProvider {
         return null
     }
 
-    private fun cacheLocation(latitude: Double, longitude: Double, city: String?) {
-        cachedLatitude = latitude
-        cachedLongitude = longitude
-        cachedCity = city
-        locationFetchedAt = System.currentTimeMillis()
+    private fun cacheIp(latitude: Double, longitude: Double, city: String?) {
+        ipLatitude = latitude
+        ipLongitude = longitude
+        ipCity = city
+        ipFetchedAt = System.currentTimeMillis()
     }
 
-    private fun fetchWeather(latitude: Double, longitude: Double): WeatherSnapshot? {
+    private fun fetchWeather(latitude: Double, longitude: Double, timezone: String?): WeatherSnapshot? {
+        val tz = timezone?.takeIf { it.isNotBlank() } ?: "auto"
         val url = "https://api.open-meteo.com/v1/forecast" +
             "?latitude=$latitude&longitude=$longitude" +
             "&current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m" +
-            "&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1"
+            "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
+            "&timezone=$tz&forecast_days=3"
         val body = fetchJson(url) ?: return null
         return try {
             val json = JSONObject(body)
             val current = json.getJSONObject("current")
             val daily = json.getJSONObject("daily")
+
+            val times = daily.optJSONArray("time")
+            val codes = daily.optJSONArray("weather_code")
+            val maxes = daily.optJSONArray("temperature_2m_max")
+            val mins = daily.optJSONArray("temperature_2m_min")
+            val precips = daily.optJSONArray("precipitation_probability_max")
+
+            val days = buildList {
+                val count = times?.length() ?: 0
+                for (i in 0 until count) {
+                    val date = times?.optString(i).orEmpty()
+                    add(
+                        DaySnapshot(
+                            date = date,
+                            code = codes?.optInt(i, 0) ?: 0,
+                            maxC = maxes?.optDouble(i, Double.NaN) ?: Double.NaN,
+                            minC = mins?.optDouble(i, Double.NaN) ?: Double.NaN,
+                            precipChance = precips?.optInt(i, 0)
+                        )
+                    )
+                }
+            }
+
             WeatherSnapshot(
                 temperatureC = current.optDouble("temperature_2m", Double.NaN),
                 weatherCode = current.optInt("weather_code", 0),
                 humidity = current.optInt("relative_humidity_2m", 0),
                 windKmh = current.optDouble("wind_speed_10m", 0.0),
-                maxC = daily.optJSONArray("temperature_2m_max")?.optDouble(0, Double.NaN) ?: Double.NaN,
-                minC = daily.optJSONArray("temperature_2m_min")?.optDouble(0, Double.NaN) ?: Double.NaN,
-                city = cachedCity
+                maxC = maxes?.optDouble(0, Double.NaN) ?: Double.NaN,
+                minC = mins?.optDouble(0, Double.NaN) ?: Double.NaN,
+                city = null,
+                days = days
             )
         } catch (e: Exception) {
             Log.w(TAG, "Failed to parse weather response", e)
@@ -173,54 +245,56 @@ class WeatherLiveTileProvider : LiveTileProvider {
         }
     }
 
-    private fun buildState(snapshot: WeatherSnapshot, tileSize: TileSize): LiveTileState {
+    private fun buildState(snapshot: WeatherSnapshot, tileSize: TileSize, tile: TileModel?): LiveTileState {
         val (description, icon) = describe(snapshot.weatherCode)
         val temperature = if (snapshot.temperatureC.isNaN()) "--" else "${snapshot.temperatureC.roundToInt()}°"
         val high = if (snapshot.maxC.isNaN()) "--" else "${snapshot.maxC.roundToInt()}°"
         val low = if (snapshot.minC.isNaN()) "--" else "${snapshot.minC.roundToInt()}°"
-        val label = snapshot.city ?: "Weather"
 
-        val currentFace = when (tileSize) {
-            TileSize.SMALL -> LiveTileFace(
-                template = LiveTileTemplate.PRIMARY_TEXT,
-                primaryText = temperature,
-                iconVector = icon,
-                accessibilityDescription = "$description, $temperature"
-            )
-            TileSize.MEDIUM -> LiveTileFace(
-                template = LiveTileTemplate.PRIMARY_TEXT,
-                primaryText = temperature,
-                secondaryText = description,
-                iconVector = icon,
-                accessibilityDescription = "$description, $temperature in $label"
-            )
-            TileSize.WIDE, TileSize.LARGE -> LiveTileFace(
-                template = LiveTileTemplate.TEXT_LINES,
-                primaryText = temperature,
-                secondaryText = description,
-                textLines = listOf(
-                    description,
-                    "High $high  Low $low",
-                    "Humidity ${snapshot.humidity}%",
-                    "Wind ${snapshot.windKmh.roundToInt()} km/h"
-                ),
-                iconVector = icon,
-                accessibilityDescription = "$description, $temperature in $label"
+        // For a pinned tile the tile's own label is the city; only the generic launcher tile
+        // (no coordinates) uses the IP-detected city.
+        val isPinnedCity = tile?.weatherLat != null && tile.weatherLon != null
+        val labelOverride = if (isPinnedCity) null else ipCity
+        val cityForAccessibility = tile?.label ?: ipCity ?: "Weather"
+
+        val days = snapshot.days.map { day ->
+            val (dayDesc, dayIcon) = describe(day.code)
+            WeatherDay(
+                label = weekdayLabel(day.date),
+                icon = dayIcon,
+                highText = if (day.maxC.isNaN()) "--" else "${day.maxC.roundToInt()}°",
+                lowText = if (day.minC.isNaN()) "--" else "${day.minC.roundToInt()}°",
+                precipChance = day.precipChance
             )
         }
 
-        // Second face for the Windows-style flip, showing today's range.
+        val currentData = WeatherTileData(
+            temperatureText = temperature,
+            conditionText = description,
+            icon = icon,
+            highText = high,
+            lowText = low,
+            days = days
+        )
+
+        val currentFace = LiveTileFace(
+            template = LiveTileTemplate.WEATHER,
+            weather = currentData,
+            labelOverride = labelOverride,
+            accessibilityDescription = "$description, $temperature in $cityForAccessibility"
+        )
+
         val forecastFace = LiveTileFace(
-            template = if (tileSize == TileSize.SMALL) {
-                LiveTileTemplate.PRIMARY_TEXT
-            } else {
-                LiveTileTemplate.TEXT_LINES
-            },
-            primaryText = high,
-            secondaryText = "High",
-            textLines = listOf("Low $low", description),
-            iconVector = icon,
-            labelOverride = label,
+            template = LiveTileTemplate.WEATHER,
+            weather = WeatherTileData(
+                temperatureText = high,
+                conditionText = "Low $low",
+                icon = icon,
+                highText = high,
+                lowText = low,
+                days = days
+            ),
+            labelOverride = labelOverride,
             accessibilityDescription = "High $high, low $low, $description"
         )
 
@@ -232,7 +306,17 @@ class WeatherLiveTileProvider : LiveTileProvider {
         )
     }
 
-    private fun describe(code: Int): Pair<String, androidx.compose.ui.graphics.vector.ImageVector> = when (code) {
+    private fun weekdayLabel(date: String): String {
+        if (date.isBlank()) return ""
+        return try {
+            val parsed = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(date) ?: return date
+            SimpleDateFormat("EEE", Locale.getDefault()).format(parsed)
+        } catch (_: Exception) {
+            date
+        }
+    }
+
+    private fun describe(code: Int): Pair<String, ImageVector> = when (code) {
         0 -> "Clear" to MetroIcons.WeatherSun
         1 -> "Mainly clear" to MetroIcons.WeatherSun
         2 -> "Partly cloudy" to MetroIcons.WeatherCloud

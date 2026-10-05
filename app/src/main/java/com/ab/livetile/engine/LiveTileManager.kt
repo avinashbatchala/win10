@@ -163,7 +163,7 @@ class LiveTileManager(
 
     private suspend fun refreshTileState(tileKey: String, tile: TileModel, provider: LiveTileProvider) {
         try {
-            val newState = provider.getLiveTileState(context, tile.size)
+            val newState = provider.getLiveTileState(context, tile.size, tile)
             if (newState != null && newState.faces.isNotEmpty()) {
                 val current = _tileStates.value[tileKey]
                 val preservedFaceIndex = if (current != null && current.providerId == newState.providerId) {

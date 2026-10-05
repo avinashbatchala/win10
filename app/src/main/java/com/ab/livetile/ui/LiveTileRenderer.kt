@@ -143,6 +143,7 @@ private fun RenderTemplate(
             showControls = mediaShowControls,
             showProgress = mediaShowProgress
         )
+        LiveTileTemplate.WEATHER -> WeatherTileContent(face, tileSize, displayLabel)
     }
 }
 

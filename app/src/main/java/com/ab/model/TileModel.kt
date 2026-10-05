@@ -13,7 +13,12 @@ data class TileModel(
     val customLabel: String? = null,
     val isAvailable: Boolean = true,
     val iconMode: String? = null,
-    val customIconId: String? = null
+    val customIconId: String? = null,
+    // Weather system tile: the city this tile represents (null -> fall back to IP location).
+    val weatherLat: Double? = null,
+    val weatherLon: Double? = null,
+    val weatherTimezone: String? = null,
+    val weatherLocationId: String? = null
 ) {
     val componentKey: String get() = if (activityName.isNotEmpty()) "$packageName/$activityName" else packageName
     val effectiveCols: Int get() = size.cols

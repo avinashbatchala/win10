@@ -28,7 +28,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class LauncherPreferences(private val context: Context) {
 
     companion object {
-        const val CURRENT_SCHEMA_VERSION = 2
+        const val CURRENT_SCHEMA_VERSION = 3
 
         private val KEY_SCHEMA_VERSION = intPreferencesKey("layout_schema_version")
         private val KEY_PINNED_TILES = stringPreferencesKey("pinned_tiles_json")
@@ -235,6 +235,12 @@ class LauncherPreferences(private val context: Context) {
                 if (tile.iconMode != null) put("imode", tile.iconMode)
                 if (tile.customIconId != null) put("cid", tile.customIconId)
                 if (!tile.isAvailable) put("avail", false)
+                if (tile.weatherLat != null && tile.weatherLon != null) {
+                    put("wlat", tile.weatherLat)
+                    put("wlon", tile.weatherLon)
+                }
+                if (tile.weatherTimezone != null) put("wtz", tile.weatherTimezone)
+                if (tile.weatherLocationId != null) put("wlid", tile.weatherLocationId)
             }
             array.put(obj)
         }
@@ -276,7 +282,11 @@ class LauncherPreferences(private val context: Context) {
                         customLabel = if (obj.has("clbl")) obj.getString("clbl") else null,
                         iconMode = if (obj.has("imode")) obj.getString("imode") else null,
                         customIconId = if (obj.has("cid")) obj.getString("cid") else null,
-                        isAvailable = obj.optBoolean("avail", true)
+                        isAvailable = obj.optBoolean("avail", true),
+                        weatherLat = if (obj.has("wlat")) obj.optDouble("wlat") else null,
+                        weatherLon = if (obj.has("wlon")) obj.optDouble("wlon") else null,
+                        weatherTimezone = if (obj.has("wtz")) obj.getString("wtz") else null,
+                        weatherLocationId = if (obj.has("wlid")) obj.getString("wlid") else null
                     )
                 )
             }

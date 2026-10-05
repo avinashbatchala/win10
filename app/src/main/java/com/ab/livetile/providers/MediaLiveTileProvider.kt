@@ -3,6 +3,7 @@ package com.ab.livetile.providers
 import android.content.Context
 import com.ab.livetile.api.LiveTileProvider
 import com.ab.livetile.model.LiveTileFace
+import com.ab.model.TileModel
 import com.ab.livetile.model.LiveTileState
 import com.ab.livetile.model.LiveTileTemplate
 import com.ab.media.MediaSessionRepository
@@ -34,7 +35,7 @@ class MediaLiveTileProvider(
         return mediaRepository.activeSessionsByPackage.value.containsKey(packageName)
     }
 
-    override suspend fun getLiveTileState(context: Context, tileSize: TileSize): LiveTileState? {
+    override suspend fun getLiveTileState(context: Context, tileSize: TileSize, tile: TileModel?): LiveTileState? {
         // Will be called with the specific tile's package
         return null
     }

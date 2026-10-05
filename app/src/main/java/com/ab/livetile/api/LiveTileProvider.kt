@@ -2,6 +2,7 @@ package com.ab.livetile.api
 
 import android.content.Context
 import com.ab.livetile.model.LiveTileState
+import com.ab.model.TileModel
 import com.ab.model.TileSize
 
 /**
@@ -35,10 +36,15 @@ interface LiveTileProvider {
     fun matchesComponent(packageName: String, activityName: String?): Boolean
 
     /**
-     * Fetches current Live Tile state for the given tile dimensions.
-     * Must be resilient and return null on failure rather than throwing.
+     * Fetches current Live Tile state for the given tile dimensions and (optional) tile.
+     * The tile is supplied so providers can use per-tile data such as the pinned weather
+     * city. Must be resilient and return null on failure rather than throwing.
      */
-    suspend fun getLiveTileState(context: Context, tileSize: TileSize): LiveTileState?
+    suspend fun getLiveTileState(
+        context: Context,
+        tileSize: TileSize,
+        tile: TileModel? = null
+    ): LiveTileState?
 
     /**
      * Called when the launcher becomes active and foregrounded.
