@@ -31,7 +31,10 @@ android {
       keyPassword = System.getenv("KEY_PASSWORD")
     }
     create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
+      // Prefer the shared MetroSuite debug identity so same-signature IPC (Clock live tile)
+      // works in development; fall back to the local debug keystore outside MetroSuite.
+      val sharedDebug = rootProject.file("../../tools/metro-debug.keystore")
+      storeFile = if (sharedDebug.exists()) sharedDebug else file("${rootDir}/debug.keystore")
       storePassword = "android"
       keyAlias = "androiddebugkey"
       keyPassword = "android"
