@@ -41,6 +41,9 @@ class WeatherLiveTileProvider : LiveTileProvider {
         private const val TAG = "WeatherTile"
         private const val LOCATION_TTL_MS = 6 * 60 * 60 * 1000L
         private const val WEATHER_TTL_MS = 30 * 60 * 1000L
+
+        // Keyless fallback so the generic Weather tile is never blank when IP geolocation fails.
+        private val FALLBACK_LOCATION = Triple(47.674, -122.1215, "Redmond")
     }
 
     override val providerId: String = "livetile.system.weather"
@@ -129,7 +132,7 @@ class WeatherLiveTileProvider : LiveTileProvider {
         if (lat != null && lon != null) {
             return Triple(lat, lon, null)
         }
-        val ip = resolveIpLocation() ?: return null
+        val ip = resolveIpLocation() ?: return FALLBACK_LOCATION
         return Triple(ip.first, ip.second, ipCity)
     }
 

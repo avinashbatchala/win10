@@ -319,8 +319,7 @@ private fun StartPivotView(
                 Text(
                     text = when {
                         settings.backgroundImageUri == null -> "No background picture"
-                        settings.backgroundStyle == BackgroundStyle.TILE_PICTURE ->
-                            "Tile picture (not yet available)"
+                        settings.backgroundStyle == BackgroundStyle.TILE_PICTURE -> "Tile picture"
                         else -> "Full screen picture"
                     },
                     style = MetroTypography.settingsLabel.copy(
@@ -369,7 +368,8 @@ private fun StartPivotView(
                     }
                 )
                 Text(
-                    text = "Tile picture shows the photo through the tiles. It is not implemented yet.",
+                    text = "Tile picture shows the photo inside the tiles; " +
+                        "full screen shows it behind translucent tiles.",
                     style = MetroTypography.settingsSubtext.copy(color = subtle),
                     modifier = Modifier.padding(top = 6.dp)
                 )
@@ -468,7 +468,7 @@ private fun StartPreview(
             .background(if (isDark) Color.Black else Color.White, RectangleShape)
             .clipToBounds()
     ) {
-        if (settings.backgroundStyle != BackgroundStyle.NONE && wallpaper != null) {
+        if (settings.backgroundStyle == BackgroundStyle.FULL_SCREEN && wallpaper != null) {
             Image(
                 bitmap = wallpaper,
                 contentDescription = null,
@@ -494,8 +494,21 @@ private fun StartPreview(
                                     if (filled) accent.copy(alpha = tileAlpha)
                                     else Color.Transparent,
                                     RectangleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (filled &&
+                                settings.backgroundStyle == BackgroundStyle.TILE_PICTURE &&
+                                wallpaper != null
+                            ) {
+                                Image(
+                                    bitmap = wallpaper,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
                                 )
-                        )
+                            }
+                        }
                     }
                 }
             }

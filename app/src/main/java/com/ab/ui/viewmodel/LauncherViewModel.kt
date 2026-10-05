@@ -39,6 +39,7 @@ import com.ab.ui.settings.SettingsPivot
 import com.ab.ui.settings.SystemTileDef
 import com.ab.ui.settings.SystemTiles
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -1040,9 +1041,17 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun resetAllLauncherSettings() {
         viewModelScope.launch {
             preferences.resetAllSettings()
-            val tiles = createDefaultLayout(repository.installedApps.value)
+            // Apps may not be loaded yet on a cold start; wait briefly so the default layout
+            // is not generated empty.
+            val apps = repository.installedApps.value.ifEmpty {
+                withTimeoutOrNull(10_000L) {
+                    repository.installedApps.first { it.isNotEmpty() }
+                }.orEmpty()
+            }
+            val tiles = createDefaultLayout(apps)
             _pinnedTiles.value = tiles
             preferences.savePinnedTiles(tiles)
+            preferences.setLayoutVersion(1)
         }
     }
 
