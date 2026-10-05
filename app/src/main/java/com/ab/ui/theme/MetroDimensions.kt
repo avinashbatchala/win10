@@ -3,10 +3,10 @@ package com.ab.ui.theme
 import androidx.compose.ui.unit.dp
 
 object MetroDimensions {
-    // Start Screen Grid (Windows Phone 8.1 proportions: 4 columns = 2 medium tiles across)
+    // Start Screen Grid (Windows Phone 8.1: 6 columns = 3 medium tiles across)
     val tileGap = 8.dp
-    val startHorizontalInset = 14.dp
-    val startTopInset = 30.dp
+    val startHorizontalInset = 16.dp
+    val startTopInset = 10.dp
     val startBottomInset = 28.dp
 
     // Tile inner padding
@@ -14,9 +14,9 @@ object MetroDimensions {
     val tileContentPaddingSmall = 4.dp
     // Fixed glyph sizes matching the WP8.1 tile template (icon size is not proportional to the tile).
     val tileIconSizeSmall = 30.dp
-    val tileIconSizeMedium = 46.dp
-    val tileIconSizeWide = 46.dp
-    val tileIconSizeLarge = 56.dp
+    val tileIconSizeMedium = 48.dp
+    val tileIconSizeWide = 48.dp
+    val tileIconSizeLarge = 64.dp
 
     // Edit controls
     val editButtonSize = 32.dp

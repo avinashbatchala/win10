@@ -45,7 +45,7 @@ object MetroTypography {
     val tileLabel = TextStyle(
         fontFamily = SegoeUiFontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
+        fontSize = 16.sp,
         lineHeight = 15.sp,
         letterSpacing = (-0.1).sp,
         color = MetroColors.TextWhite,
@@ -55,7 +55,7 @@ object MetroTypography {
     val tileLabelLarge = TextStyle(
         fontFamily = SegoeUiFontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 15.5.sp,
+        fontSize = 16.sp,
         lineHeight = 18.sp,
         letterSpacing = (-0.1).sp,
         color = MetroColors.TextWhite,
@@ -75,7 +75,7 @@ object MetroTypography {
     val tileLargeHeader = TextStyle(
         fontFamily = SegoeUiFontFamily,
         fontWeight = FontWeight.Light,
-        fontSize = 32.sp,
+        fontSize = 40.sp,
         lineHeight = 36.sp,
         letterSpacing = (-0.5).sp,
         color = MetroColors.TextWhite,

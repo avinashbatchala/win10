@@ -20,6 +20,7 @@ import com.ab.model.LiveTileAnimationFrequency
 import com.ab.model.TileModel
 import com.ab.model.TileSize
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONObject
@@ -56,6 +57,15 @@ class LauncherPreferences(private val context: Context) {
         private val KEY_MEDIA_SHOW_PROGRESS = booleanPreferencesKey("media_show_progress")
         private val KEY_LAUNCHER_ORIENTATION = stringPreferencesKey("launcher_orientation")
         private val KEY_DISPLAY_SCALE = stringPreferencesKey("display_scale")
+        private val KEY_LAYOUT_VERSION = intPreferencesKey("layout_version")
+    }
+
+    /** Bumped when the built-in default Start layout is redesigned (one-time reset). */
+    suspend fun getLayoutVersion(): Int =
+        context.dataStore.data.map { it[KEY_LAYOUT_VERSION] ?: 0 }.first()
+
+    suspend fun setLayoutVersion(version: Int) {
+        context.dataStore.edit { it[KEY_LAYOUT_VERSION] = version }
     }
 
     val pinnedTilesFlow: Flow<List<TileModel>?> = context.dataStore.data.map { prefs ->
@@ -67,7 +77,7 @@ class LauncherPreferences(private val context: Context) {
         LauncherSettings(
             accentColor = prefs[KEY_ACCENT_COLOR] ?: 0xFF0078D7L,
             darkTheme = prefs[KEY_DARK_THEME] ?: true,
-            showMoreTiles = prefs[KEY_SHOW_MORE_TILES] ?: false,
+            showMoreTiles = prefs[KEY_SHOW_MORE_TILES] ?: true,
             tileTransparency = prefs[KEY_TILE_TRANSPARENCY] ?: 0.0f,
             backgroundImageUri = prefs[KEY_BACKGROUND_IMAGE_URI],
             backgroundStyle = enumOrDefault(

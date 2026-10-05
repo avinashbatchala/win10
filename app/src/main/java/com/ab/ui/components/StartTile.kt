@@ -105,8 +105,7 @@ fun StartTile(
     }
     val bgAlpha = (1.0f - tileTransparency).coerceIn(0.0f, 1.0f)
     val tileBgColor = if (tilePicture != null) baseColor else baseColor.copy(alpha = bgAlpha)
-    // Windows Phone tile labels are lowercase.
-    val displayLabel = ((tile.customLabel ?: tile.label) + (if (!tile.isAvailable) " (Unavailable)" else "")).lowercase()
+    val displayLabel = (tile.customLabel ?: tile.label) + (if (!tile.isAvailable) " (Unavailable)" else "")
 
     // Windows Phone tile glyph sizes are fixed (they do not scale with the tile).
     val iconSize = when (tile.size) {
