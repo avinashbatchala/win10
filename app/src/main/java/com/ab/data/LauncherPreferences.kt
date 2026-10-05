@@ -28,7 +28,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class LauncherPreferences(private val context: Context) {
 
     companion object {
-        const val CURRENT_SCHEMA_VERSION = 1
+        const val CURRENT_SCHEMA_VERSION = 2
 
         private val KEY_SCHEMA_VERSION = intPreferencesKey("layout_schema_version")
         private val KEY_PINNED_TILES = stringPreferencesKey("pinned_tiles_json")
@@ -234,6 +234,7 @@ class LauncherPreferences(private val context: Context) {
                 if (tile.customLabel != null) put("clbl", tile.customLabel)
                 if (tile.iconMode != null) put("imode", tile.iconMode)
                 if (tile.customIconId != null) put("cid", tile.customIconId)
+                if (!tile.isAvailable) put("avail", false)
             }
             array.put(obj)
         }
@@ -274,7 +275,8 @@ class LauncherPreferences(private val context: Context) {
                         customColor = if (obj.has("color")) obj.getLong("color") else null,
                         customLabel = if (obj.has("clbl")) obj.getString("clbl") else null,
                         iconMode = if (obj.has("imode")) obj.getString("imode") else null,
-                        customIconId = if (obj.has("cid")) obj.getString("cid") else null
+                        customIconId = if (obj.has("cid")) obj.getString("cid") else null,
+                        isAvailable = obj.optBoolean("avail", true)
                     )
                 )
             }

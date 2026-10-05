@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.ab.ui.icons.MetroIcons
 import com.ab.ui.theme.MetroColors
@@ -20,12 +21,14 @@ import com.ab.ui.theme.MetroDimensions
 @Composable
 fun TileUnpinButton(
     onUnpin: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    buttonSize: Dp = MetroDimensions.editButtonSize,
+    iconSize: Dp = MetroDimensions.editIconSize
 ) {
     Box(
         modifier = modifier
             .testTag("tile_unpin_button")
-            .size(MetroDimensions.editButtonSize)
+            .size(buttonSize)
             .background(MetroColors.EditControlBackground, RectangleShape)
             .border(1.5.dp, MetroColors.EditControlBorder, RectangleShape)
             .clickable(onClick = onUnpin),
@@ -35,7 +38,7 @@ fun TileUnpinButton(
             imageVector = MetroIcons.Unpin,
             contentDescription = "Unpin tile",
             tint = Color.White,
-            modifier = Modifier.size(MetroDimensions.editIconSize)
+            modifier = Modifier.size(iconSize)
         )
     }
 }
@@ -43,12 +46,14 @@ fun TileUnpinButton(
 @Composable
 fun TileResizeButton(
     onResize: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    buttonSize: Dp = MetroDimensions.editButtonSize,
+    iconSize: Dp = MetroDimensions.editIconSize
 ) {
     Box(
         modifier = modifier
             .testTag("tile_resize_button")
-            .size(MetroDimensions.editButtonSize)
+            .size(buttonSize)
             .background(MetroColors.EditControlBackground, RectangleShape)
             .border(1.5.dp, MetroColors.EditControlBorder, RectangleShape)
             .clickable(onClick = onResize),
@@ -58,7 +63,7 @@ fun TileResizeButton(
             imageVector = MetroIcons.Resize,
             contentDescription = "Resize tile",
             tint = Color.White,
-            modifier = Modifier.size(MetroDimensions.editIconSize)
+            modifier = Modifier.size(iconSize)
         )
     }
 }

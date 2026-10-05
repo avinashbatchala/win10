@@ -15,9 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -51,7 +48,6 @@ fun AppListRow(
     val context = LocalContext.current
     val isDark = com.ab.ui.theme.LocalMetroDarkTheme.current
     val fgColor = com.ab.ui.theme.LocalMetroForeground.current
-    val surfaceColor = com.ab.ui.theme.LocalMetroSurface.current
     var showMenu by remember { mutableStateOf(false) }
 
     Box(
@@ -117,73 +113,33 @@ fun AppListRow(
             )
         }
 
-        // Windows 10 Mobile style context popup
-        DropdownMenu(
+        // Windows 10 Mobile style context flyout
+        MetroContextMenu(
             expanded = showMenu,
-            onDismissRequest = { showMenu = false },
-            modifier = Modifier
-                .background(surfaceColor, RectangleShape)
-                .testTag("app_context_menu")
-        ) {
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        text = if (isPinned) "Unpin from Start" else "Pin to Start",
-                        style = MetroTypography.contextMenuItem.copy(color = fgColor)
-                    )
-                },
-                onClick = {
-                    showMenu = false
-                    if (isPinned) onUnpinFromStart() else onPinToStart()
-                },
-                colors = MenuDefaults.itemColors(
-                    textColor = fgColor
-                )
-            )
-
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        text = "App settings",
-                        style = MetroTypography.contextMenuItem.copy(color = fgColor)
-                    )
-                },
-                onClick = {
-                    showMenu = false
-                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.parse("package:${app.packageName}")
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            onDismiss = { showMenu = false },
+            items = listOf(
+                MetroContextMenuItem(
+                    label = if (isPinned) "Unpin from Start" else "Pin to Start",
+                    onClick = { if (isPinned) onUnpinFromStart() else onPinToStart() }
+                ),
+                MetroContextMenuItem(
+                    label = "App settings",
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.parse("package:${app.packageName}")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        try {
+                            context.startActivity(intent)
+                        } catch (_: Exception) {}
                     }
-                    try {
-                        context.startActivity(intent)
-                    } catch (_: Exception) {}
-                },
-                colors = MenuDefaults.itemColors(
-                    textColor = fgColor
+                ),
+                MetroContextMenuItem(
+                    label = "Uninstall",
+                    enabled = app.canUninstall,
+                    onClick = { if (app.canUninstall) onUninstall() }
                 )
             )
-
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        text = "Uninstall",
-                        style = MetroTypography.contextMenuItem.copy(
-                            color = if (app.canUninstall) fgColor else (if (isDark) Color(0xFF666666) else Color(0xFFAAAAAA))
-                        )
-                    )
-                },
-                enabled = app.canUninstall,
-                onClick = {
-                    showMenu = false
-                    if (app.canUninstall) {
-                        onUninstall()
-                    }
-                },
-                colors = MenuDefaults.itemColors(
-                    textColor = fgColor,
-                    disabledTextColor = if (isDark) Color(0xFF666666) else Color(0xFFAAAAAA)
-                )
-            )
-        }
+        )
     }
 }

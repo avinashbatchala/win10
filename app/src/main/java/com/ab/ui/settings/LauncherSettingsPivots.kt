@@ -169,10 +169,10 @@ internal fun TilesPivotView(
         add(PivotEntry.Header("tiles.default.header", "TILES"))
         add(PivotEntry.Setting("tiles.default_size") {
             MetroRadioGroup(
-                options = listOf("Small", "Medium"),
-                selectedIndex = if (settings.defaultTileSize == TileSize.SMALL) 0 else 1,
+                options = listOf("Small", "Medium", "Wide", "Large"),
+                selectedIndex = settings.defaultTileSize.ordinal.coerceIn(0, TileSize.entries.size - 1),
                 onSelect = { index ->
-                    vm.setDefaultTileSize(if (index == 0) TileSize.SMALL else TileSize.MEDIUM)
+                    vm.setDefaultTileSize(TileSize.entries[index])
                 }
             )
         })

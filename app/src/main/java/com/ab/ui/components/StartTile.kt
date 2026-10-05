@@ -2,11 +2,13 @@ package com.ab.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
@@ -19,11 +21,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -35,6 +39,19 @@ import com.ab.model.TileModel
 import com.ab.model.TileSize
 import com.ab.ui.theme.MetroDimensions
 import com.ab.ui.theme.MetroTypography
+
+/**
+ * A portion of the Start "Tile picture" background shown inside a single tile. The image
+ * is laid out across the whole grid ([width] x [height]) and windowed by the tile's
+ * position ([offsetX]/[offsetY]) so the tile mosaic reads as one continuous picture.
+ */
+data class TilePicture(
+    val bitmap: ImageBitmap,
+    val offsetX: Dp,
+    val offsetY: Dp,
+    val width: Dp,
+    val height: Dp
+)
 
 @Composable
 fun StartTile(
@@ -56,6 +73,7 @@ fun StartTile(
     showAppNames: Boolean = true,
     mediaShowControls: Boolean = true,
     mediaShowProgress: Boolean = true,
+    tilePicture: TilePicture? = null,
     modifier: Modifier = Modifier
 ) {
     var isPressed by remember { mutableStateOf(false) }
@@ -87,8 +105,14 @@ fun StartTile(
         else -> accentColor
     }
     val bgAlpha = (1.0f - tileTransparency).coerceIn(0.0f, 1.0f)
-    val tileBgColor = baseColor.copy(alpha = bgAlpha)
+    val tileBgColor = if (tilePicture != null) baseColor else baseColor.copy(alpha = bgAlpha)
     val displayLabel = (tile.customLabel ?: tile.label) + (if (!tile.isAvailable) " (Unavailable)" else "")
+
+    // Edit controls shrink with the tile so the unpin + resize buttons never overlap on 1x1.
+    val tileMinDp = minOf(widthDp, heightDp).value
+    val editButtonSize = TileEditMetrics.buttonSizeDp(tileMinDp).dp
+    val editIconSize = TileEditMetrics.iconSizeDp(tileMinDp).dp
+    val editPadding = TileEditMetrics.paddingDp(tileMinDp).dp
 
     Box(
         modifier = modifier
@@ -96,10 +120,8 @@ fun StartTile(
             .size(widthDp, heightDp)
             .scale(pressScale)
             .alpha(editAlpha)
-            .graphicsLayer {
-                shadowElevation = if (isDragging) 16.dp.toPx() else 0f
-            }
             .background(tileBgColor, RectangleShape)
+            .clipToBounds()
             .then(
                 if (isEditMode && isSelected) {
                     Modifier.border(2.dp, Color.White, RectangleShape)
@@ -125,6 +147,18 @@ fun StartTile(
                 }
             }
     ) {
+        // "Tile picture" background: window the full-grid image into this tile.
+        if (tilePicture != null) {
+            Image(
+                bitmap = tilePicture.bitmap,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .offset(x = -tilePicture.offsetX, y = -tilePicture.offsetY)
+                    .size(tilePicture.width, tilePicture.height)
+            )
+        }
+
         // Live Tile content or Static Tile fallback
         if (liveTileState != null && liveTileState.activeFace != null) {
             LiveTileRenderer(
@@ -176,13 +210,7 @@ fun StartTile(
                         }
 
                         if (showAppNames) {
-                            Text(
-                                text = displayLabel,
-                                style = MetroTypography.tileLabel,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.align(Alignment.BottomStart)
-                            )
+                            TileLabel(text = displayLabel, modifier = Modifier.align(Alignment.BottomStart))
                         }
                     }
                 }
@@ -192,10 +220,11 @@ fun StartTile(
                             .fillMaxSize()
                             .padding(MetroDimensions.tileContentPadding)
                     ) {
+                        // Windows 10 Mobile wide tile: icon on the left, label bottom-left.
                         Box(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .padding(bottom = 14.dp),
+                                .align(Alignment.CenterStart)
+                                .padding(start = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             if (resolvedIcon != null) {
@@ -209,13 +238,7 @@ fun StartTile(
                         }
 
                         if (showAppNames) {
-                            Text(
-                                text = displayLabel,
-                                style = MetroTypography.tileLabel,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.align(Alignment.BottomStart)
-                            )
+                            TileLabel(text = displayLabel, modifier = Modifier.align(Alignment.BottomStart))
                         }
                     }
                 }
@@ -225,28 +248,22 @@ fun StartTile(
                             .fillMaxSize()
                             .padding(MetroDimensions.tileContentPadding * 1.5f)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(bottom = 20.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (resolvedIcon != null) {
-                                LauncherIconView(
-                                    icon = resolvedIcon,
-                                    contentDescription = tile.label,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(MetroDimensions.tileIconSizeLarge)
-                                )
-                            }
+                        // Windows 10 Mobile large tile: icon top-left, label bottom-left.
+                        if (resolvedIcon != null) {
+                            LauncherIconView(
+                                icon = resolvedIcon,
+                                contentDescription = tile.label,
+                                tint = Color.White,
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .size(MetroDimensions.tileIconSizeLarge)
+                            )
                         }
 
                         if (showAppNames) {
-                            Text(
+                            TileLabel(
                                 text = displayLabel,
-                                style = MetroTypography.tileLabelLarge,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
+                                large = true,
                                 modifier = Modifier.align(Alignment.BottomStart)
                             )
                         }
@@ -255,21 +272,36 @@ fun StartTile(
             }
         }
 
-        // Edit mode controls with authentic Metro glyphs
+        // Edit mode controls with authentic Metro glyphs, scaled to the tile size.
         if (isEditMode && isSelected) {
             TileUnpinButton(
                 onUnpin = onUnpin,
+                buttonSize = editButtonSize,
+                iconSize = editIconSize,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(4.dp)
+                    .padding(editPadding)
             )
 
             TileResizeButton(
                 onResize = onResize,
+                buttonSize = editButtonSize,
+                iconSize = editIconSize,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(4.dp)
+                    .padding(editPadding)
             )
         }
     }
+}
+
+@Composable
+private fun TileLabel(text: String, large: Boolean = false, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        style = if (large) MetroTypography.tileLabelLarge else MetroTypography.tileLabel,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+    )
 }

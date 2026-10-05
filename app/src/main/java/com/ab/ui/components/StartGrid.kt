@@ -1,5 +1,6 @@
 package com.ab.ui.components
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -15,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -23,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -35,6 +38,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import com.ab.model.BackgroundStyle
 import com.ab.model.TileModel
 import com.ab.ui.theme.MetroDimensions
 import com.ab.ui.theme.MetroMotion
@@ -60,6 +64,9 @@ fun StartGrid(
     showAppNames: Boolean = true,
     mediaShowControls: Boolean = true,
     mediaShowProgress: Boolean = true,
+    backgroundStyle: BackgroundStyle = BackgroundStyle.NONE,
+    backgroundBitmap: ImageBitmap? = null,
+    onScrollOffset: (Float) -> Unit = {},
     onTileClick: (TileModel) -> Unit,
     onTileLongClick: (String) -> Unit,
     onTileResize: (String) -> Unit,
@@ -74,6 +81,11 @@ fun StartGrid(
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
+
+    // Report the scroll offset so the Start wallpaper can parallax at a slower rate.
+    LaunchedEffect(scrollState) {
+        snapshotFlow { scrollState.value }.collect { onScrollOffset(it.toFloat()) }
+    }
 
     // Measured height of the visible scroll viewport in pixels. Updated by layout
     // so drag auto-scroll adapts to any screen size/density instead of assuming one.
@@ -114,6 +126,7 @@ fun StartGrid(
         val availableWidth = maxWidth - (startInset * 2)
         val cellWidth = (availableWidth - (gap * (totalCols - 1))) / totalCols
         val step = cellWidth + gap
+        val gridWidth = maxWidth
 
         val maxRow = (tiles.maxOfOrNull { it.row + it.effectiveRows } ?: 0).coerceAtLeast(8)
         // Generous editable tail: a larger static buffer plus, while editing, half a
@@ -159,11 +172,45 @@ fun StartGrid(
                 val liveState = (liveTileStates[tile.componentKey] ?: liveTileStates[tile.packageName])
                     ?.takeIf { it.isAvailable && it.faces.isNotEmpty() }
 
-                val tileWidth = (cellWidth * tile.effectiveCols) + (gap * (tile.effectiveCols - 1))
-                val tileHeight = (cellWidth * tile.effectiveRows) + (gap * (tile.effectiveRows - 1))
+                val targetWidth = (cellWidth * tile.effectiveCols) + (gap * (tile.effectiveCols - 1))
+                val targetHeight = (cellWidth * tile.effectiveRows) + (gap * (tile.effectiveRows - 1))
 
                 val baseX = startInset + (step * tile.col)
                 val baseY = topInset + (step * tile.row)
+
+                // Animate span/position changes so resize and reorder glide instead of snapping.
+                val tileWidth by animateDpAsState(
+                    targetValue = targetWidth,
+                    animationSpec = tween(MetroMotion.DURATION_NORMAL),
+                    label = "tile_width"
+                )
+                val tileHeight by animateDpAsState(
+                    targetValue = targetHeight,
+                    animationSpec = tween(MetroMotion.DURATION_NORMAL),
+                    label = "tile_height"
+                )
+                val animX by animateDpAsState(
+                    targetValue = baseX,
+                    animationSpec = tween(MetroMotion.DURATION_NORMAL),
+                    label = "tile_x"
+                )
+                val animY by animateDpAsState(
+                    targetValue = baseY,
+                    animationSpec = tween(MetroMotion.DURATION_NORMAL),
+                    label = "tile_y"
+                )
+
+                val tilePicture = if (backgroundStyle == BackgroundStyle.TILE_PICTURE && backgroundBitmap != null) {
+                    TilePicture(
+                        bitmap = backgroundBitmap,
+                        offsetX = animX,
+                        offsetY = animY,
+                        width = gridWidth,
+                        height = totalGridHeight
+                    )
+                } else {
+                    null
+                }
 
                 val baseXPx = with(density) { baseX.toPx() }
                 val baseYPx = with(density) { baseY.toPx() }
@@ -171,7 +218,7 @@ fun StartGrid(
 
                 Box(
                     modifier = Modifier
-                        .offset(x = baseX, y = baseY)
+                        .offset(x = animX, y = animY)
                         .zIndex(if (isDragging) 10f else if (isSelected) 5f else 1f)
                         .then(
                             if (isDragging) {
@@ -263,6 +310,7 @@ fun StartGrid(
                         showAppNames = showAppNames,
                         mediaShowControls = mediaShowControls,
                         mediaShowProgress = mediaShowProgress,
+                        tilePicture = tilePicture,
                         isEditMode = isEditMode,
                         isSelected = isSelected,
                         isDragging = isDragging,
