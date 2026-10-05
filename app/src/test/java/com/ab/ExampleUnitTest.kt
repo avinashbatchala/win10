@@ -400,18 +400,6 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun tileIconIsRoughlyHalfTheTile() {
-        // Medium tile icon should read like the Windows Phone iconic tile (~50-60%).
-        val medium = com.ab.ui.components.TileMetrics
-            .iconSize(TileSize.MEDIUM, androidx.compose.ui.unit.Dp(120f))
-        assertEquals(66f, medium.value, 0.001f)
-        // Small is slightly larger relative to the tile.
-        val small = com.ab.ui.components.TileMetrics
-            .iconSize(TileSize.SMALL, androidx.compose.ui.unit.Dp(50f))
-        assertEquals(29f, small.value, 0.001f)
-    }
-
-    @Test
     fun tileEditControlsFitSmallTilesInBothGridDensities() {
         // 8-column SMALL tile is the tightest case (~34dp); 6-column is ~48dp.
         for (tileMinDp in listOf(34f, 48f, 56.7f)) {

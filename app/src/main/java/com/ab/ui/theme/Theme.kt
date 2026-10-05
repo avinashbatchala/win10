@@ -70,7 +70,7 @@ fun MetroTheme(
     // Windows 10 Mobile "Size of text, apps, and items". Only the font scale is adjusted:
     // the Start grid is proportional to screen width, so scaling density would reflow tiles
     // and overflow their content. Scaling sp enlarges text (tiles, apps list, settings) while
-    // keeping the layout stable. Icons are sized proportionally in TileMetrics.
+    // keeping the layout stable. Tile glyphs use fixed sizes (MetroDimensions).
     val baseDensity = LocalDensity.current
     val scaledDensity = Density(
         density = baseDensity.density,

@@ -55,7 +55,7 @@ class PinWeatherTileActivity : ComponentActivity() {
                         "small" -> TileSize.SMALL
                         else -> TileSize.MEDIUM
                     }
-                    val totalColumns = if (prefs.settingsFlow.first().showMoreTiles) 8 else 6
+                    val totalColumns = if (prefs.settingsFlow.first().showMoreTiles) 6 else 4
                     val (col, row) = GridManager.findFirstAvailablePosition(
                         cols = size.cols,
                         rows = size.rows,

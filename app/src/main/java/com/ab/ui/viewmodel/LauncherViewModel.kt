@@ -219,7 +219,16 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             val savedTiles = preferences.pinnedTilesFlow.first()
             if (savedTiles != null && savedTiles.isNotEmpty()) {
-                _pinnedTiles.value = savedTiles
+                // Migrate layouts saved for a denser grid (6/8 columns) to the WP8.1 4/6 grid.
+                val totalCols = if (_settings.value.showMoreTiles) 6 else 4
+                val needsRepack = savedTiles.any { it.col + it.effectiveCols > totalCols }
+                if (needsRepack) {
+                    val repacked = GridManager.repackGrid(savedTiles, totalCols)
+                    _pinnedTiles.value = repacked
+                    preferences.savePinnedTiles(repacked)
+                } else {
+                    _pinnedTiles.value = savedTiles
+                }
             }
 
             // Observe installed apps to generate initial layout or update availability
@@ -243,7 +252,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                         if (hasRemovedTiles) {
                             Log.d(TAG_PACKAGE, "Detected package removal. Purging uninstalled tiles and updating Start layout.")
                             val remainingTiles = currentTiles.filter { isPresent(it.packageName) }
-                            val totalCols = if (_settings.value.showMoreTiles) 8 else 6
+                            val totalCols = if (_settings.value.showMoreTiles) 6 else 4
                             val compacted = GridManager.compactGrid(remainingTiles, totalCols)
                             _pinnedTiles.value = compacted
                             saveTiles(compacted)
@@ -461,39 +470,33 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             }
         }
 
-        // 1. Phone (Medium 2x2 at 0, 0)
+        // Windows Phone 8.1 default: 4 columns = two medium tiles per row.
+        // 1. Phone (Medium at 0, 0)          2. Messaging (Medium at 2, 0)
         addTile(findApp("dialer", "phone", "call"), TileSize.MEDIUM, 0, 0)
-        // 2. Messaging (Medium 2x2 at 2, 0)
         addTile(findApp("message", "messaging", "sms", "mms"), TileSize.MEDIUM, 2, 0)
-        // 3. People / Contacts (Small 1x1 at 4, 0)
-        addTile(findApp("contacts", "people"), TileSize.SMALL, 4, 0)
-        // 4. Camera (Small 1x1 at 5, 0)
-        addTile(findApp("camera"), TileSize.SMALL, 5, 0)
-        // 5. Photos / Gallery (Wide 4x2 at 0, 2)
+        // 3. Photos / Gallery (Wide 4x2 at 0, 2)
         addTile(findApp("gallery", "photos", "photo", "image"), TileSize.WIDE, 0, 2)
-        // 6. Settings (Medium 2x2 at 4, 2)
-        addTile(findApp("settings", "config"), TileSize.MEDIUM, 4, 2)
-        // 7. Browser (Medium 2x2 at 0, 4)
-        addTile(findApp("chrome", "browser", "firefox", "edge"), TileSize.MEDIUM, 0, 4)
-        // 8. Calendar (Medium 2x2 at 2, 4)
-        addTile(findApp("calendar"), TileSize.MEDIUM, 2, 4)
-        // 9. Clock (Small 1x1 at 4, 4)
-        addTile(findApp("deskclock", "clock", "alarm"), TileSize.SMALL, 4, 4)
-        // 10. Calculator (Small 1x1 at 5, 4)
-        addTile(findApp("calculator", "calc"), TileSize.SMALL, 5, 4)
-        // 11. Mail / Gmail (Medium 2x2 at 0, 6)
-        addTile(findApp("gmail", "mail", "email", "outlook"), TileSize.MEDIUM, 0, 6)
-        // 12. Maps (Medium 2x2 at 2, 6)
+        // 4. Settings (Medium at 0, 4)       5. Browser (Medium at 2, 4)
+        addTile(findApp("settings", "config"), TileSize.MEDIUM, 0, 4)
+        addTile(findApp("chrome", "browser", "firefox", "edge"), TileSize.MEDIUM, 2, 4)
+        // 6. Calendar (Medium at 0, 6)       7. Maps (Medium at 2, 6)
+        addTile(findApp("calendar"), TileSize.MEDIUM, 0, 6)
         addTile(findApp("maps", "navigation"), TileSize.MEDIUM, 2, 6)
-        // 13. Music / Media (Medium 2x2 at 4, 6)
-        addTile(findApp("music", "spotify", "audio", "youtube", "media"), TileSize.MEDIUM, 4, 6)
+        // 8. Mail / Gmail (Medium at 0, 8)   9. Music / Media (Medium at 2, 8)
+        addTile(findApp("gmail", "mail", "email", "outlook"), TileSize.MEDIUM, 0, 8)
+        addTile(findApp("music", "spotify", "audio", "youtube", "media"), TileSize.MEDIUM, 2, 8)
+        // 10-13. Contacts / Clock / Calculator / Camera (Small across row 10)
+        addTile(findApp("contacts", "people"), TileSize.SMALL, 0, 10)
+        addTile(findApp("deskclock", "clock", "alarm"), TileSize.SMALL, 1, 10)
+        addTile(findApp("calculator", "calc"), TileSize.SMALL, 2, 10)
+        addTile(findApp("camera"), TileSize.SMALL, 3, 10)
 
         // Fill remaining apps if any of the above were missing
         val remainingApps = apps.filter { !usedPackages.contains(it.packageName) }
         var appIdx = 0
         while (tiles.size < 12 && appIdx < remainingApps.size) {
             val app = remainingApps[appIdx++]
-            val pos = GridManager.findFirstAvailablePosition(2, 2, tiles, 6)
+            val pos = GridManager.findFirstAvailablePosition(2, 2, tiles, 4)
             tiles.add(
                 TileModel(
                     id = UUID.randomUUID().toString(),
@@ -509,7 +512,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             )
         }
 
-        return GridManager.compactGrid(tiles, 6)
+        return GridManager.compactGrid(tiles, 4)
     }
 
     fun getAppIcon(packageName: String, activityName: String? = null): ImageBitmap? {
@@ -658,7 +661,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         val current = _pinnedTiles.value
         val tile = current.firstOrNull { it.id == tileId } ?: return
         val nextSize = tile.size.next()
-        val totalCols = if (_settings.value.showMoreTiles) 8 else 6
+        val totalCols = if (_settings.value.showMoreTiles) 6 else 4
         val updated = GridManager.resizeTile(tileId, nextSize, current, totalCols)
         _pinnedTiles.value = updated
         saveTiles(updated)
@@ -667,7 +670,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun unpinTile(tileId: String) {
         val current = _pinnedTiles.value
         val updated = current.filter { it.id != tileId }
-        val totalCols = if (_settings.value.showMoreTiles) 8 else 6
+        val totalCols = if (_settings.value.showMoreTiles) 6 else 4
         val compacted = GridManager.compactGrid(updated, totalCols)
         _pinnedTiles.value = compacted
         saveTiles(compacted)
@@ -689,7 +692,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun onTileDragEnd(targetCol: Int, targetRow: Int) {
         val tileId = _draggedTileId.value ?: return
         val current = _pinnedTiles.value
-        val totalCols = if (_settings.value.showMoreTiles) 8 else 6
+        val totalCols = if (_settings.value.showMoreTiles) 6 else 4
         val moved = GridManager.moveTile(tileId, targetCol, targetRow, current, totalCols)
         _pinnedTiles.value = moved
         saveTiles(moved)
@@ -705,7 +708,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun pinApp(app: AppInfo, size: TileSize? = null) {
         val actualSize = size ?: _settings.value.defaultTileSize
         val current = _pinnedTiles.value
-        val totalCols = if (_settings.value.showMoreTiles) 8 else 6
+        val totalCols = if (_settings.value.showMoreTiles) 6 else 4
         val pos = GridManager.findFirstAvailablePosition(actualSize.cols, actualSize.rows, current, totalCols)
         val maxOrder = (current.maxOfOrNull { it.order } ?: 0) + 1
         val newTile = TileModel(
@@ -731,7 +734,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun unpinAppByPackage(packageName: String) {
         val current = _pinnedTiles.value
         val updated = current.filter { it.packageName != packageName }
-        val totalCols = if (_settings.value.showMoreTiles) 8 else 6
+        val totalCols = if (_settings.value.showMoreTiles) 6 else 4
         val compacted = GridManager.compactGrid(updated, totalCols)
         _pinnedTiles.value = compacted
         saveTiles(compacted)
@@ -771,7 +774,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun toggleShowMoreTiles() {
         val newValue = !_settings.value.showMoreTiles
         _settings.value = _settings.value.copy(showMoreTiles = newValue)
-        val totalCols = if (newValue) 8 else 6
+        val totalCols = if (newValue) 6 else 4
         val repacked = GridManager.repackGrid(_pinnedTiles.value, totalCols)
         _pinnedTiles.value = repacked
         saveTiles(repacked)
@@ -970,7 +973,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     fun pinSystemTile(def: SystemTileDef) {
         if (isSystemTilePinned(def.packageName)) return
         val currentTiles = _pinnedTiles.value
-        val totalCols = if (_settings.value.showMoreTiles) 8 else 6
+        val totalCols = if (_settings.value.showMoreTiles) 6 else 4
         val (col, row) = GridManager.findFirstAvailablePosition(
             cols = def.defaultSize.cols,
             rows = def.defaultSize.rows,
@@ -996,7 +999,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         val current = _pinnedTiles.value
         val updated = current.filter { it.packageName != packageName }
         if (updated == current) return
-        val totalCols = if (_settings.value.showMoreTiles) 8 else 6
+        val totalCols = if (_settings.value.showMoreTiles) 6 else 4
         val compacted = GridManager.compactGrid(updated, totalCols)
         _pinnedTiles.value = compacted
         saveTiles(compacted)

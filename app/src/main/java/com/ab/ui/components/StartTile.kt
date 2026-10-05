@@ -108,12 +108,16 @@ fun StartTile(
     val tileBgColor = if (tilePicture != null) baseColor else baseColor.copy(alpha = bgAlpha)
     val displayLabel = (tile.customLabel ?: tile.label) + (if (!tile.isAvailable) " (Unavailable)" else "")
 
-    // Windows Phone iconic tiles: the logo dominates the tile (~50-60% of its short side).
-    val tileMin = minOf(widthDp, heightDp)
-    val iconSize = TileMetrics.iconSize(tile.size, tileMin)
+    // Windows Phone tile glyph sizes are fixed (they do not scale with the tile).
+    val iconSize = when (tile.size) {
+        TileSize.SMALL -> MetroDimensions.tileIconSizeSmall
+        TileSize.MEDIUM -> MetroDimensions.tileIconSizeMedium
+        TileSize.WIDE -> MetroDimensions.tileIconSizeWide
+        TileSize.LARGE -> MetroDimensions.tileIconSizeLarge
+    }
 
     // Edit controls shrink with the tile so the unpin + resize buttons never overlap on 1x1.
-    val tileMinDp = tileMin.value
+    val tileMinDp = minOf(widthDp, heightDp).value
     val editButtonSize = TileEditMetrics.buttonSizeDp(tileMinDp).dp
     val editIconSize = TileEditMetrics.iconSizeDp(tileMinDp).dp
     val editPadding = TileEditMetrics.paddingDp(tileMinDp).dp

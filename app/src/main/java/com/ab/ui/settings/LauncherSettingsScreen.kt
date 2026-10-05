@@ -433,9 +433,9 @@ private fun StartPivotView(
             MetroSettingRow(
                 title = "Show more tiles",
                 subtitle = if (settings.showMoreTiles) {
-                    "Dense 8-column layout"
+                    "Dense 6-column layout"
                 } else {
-                    "Standard 6-column layout"
+                    "Standard 4-column layout"
                 },
                 trailing = {
                     MetroToggle(
@@ -459,7 +459,7 @@ private fun StartPreview(
     accent: Color
 ) {
     val isDark = LocalMetroDarkTheme.current
-    val columns = if (settings.showMoreTiles) 8 else 6
+    val columns = if (settings.showMoreTiles) 6 else 4
     val tileAlpha = (1f - settings.tileTransparency).coerceIn(0f, 1f)
     Box(
         modifier = Modifier

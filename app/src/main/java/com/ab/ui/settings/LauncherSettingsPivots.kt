@@ -620,7 +620,7 @@ internal fun AboutPivotView(
                 )
                 MetroInfoRow(
                     "Grid density",
-                    if (settings.showMoreTiles) "8 columns" else "6 columns"
+                    if (settings.showMoreTiles) "6 columns" else "4 columns"
                 )
                 MetroInfoRow("Theme", if (settings.darkTheme) "Dark" else "Light")
             }

@@ -98,7 +98,7 @@ class LauncherPreferences(private val context: Context) {
                 prefs[KEY_LAUNCHER_ORIENTATION],
                 LauncherOrientation.PORTRAIT
             ),
-            displayScale = enumOrDefault(prefs[KEY_DISPLAY_SCALE], DisplayScale.AUTO)
+            displayScale = enumOrDefault(prefs[KEY_DISPLAY_SCALE], DisplayScale.NORMAL)
         )
     }
 

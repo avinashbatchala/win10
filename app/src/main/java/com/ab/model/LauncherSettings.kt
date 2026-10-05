@@ -48,7 +48,7 @@ enum class DisplayScale(val multiplier: Float) {
 data class LauncherSettings(
     val accentColor: Long = 0xFF0078D7L, // Windows Lumia Blue
     val darkTheme: Boolean = true,
-    val showMoreTiles: Boolean = false, // 6 columns (default) vs 8 columns
+    val showMoreTiles: Boolean = false, // 4 columns (default, WP8.1) vs 6 columns
     val tileTransparency: Float = 0.0f, // 0.0f = 0% transparent (opaque), 1.0f = 100% transparent
     val backgroundImageUri: String? = null,
     val backgroundStyle: BackgroundStyle = BackgroundStyle.FULL_SCREEN,
@@ -78,5 +78,5 @@ data class LauncherSettings(
 
     // System
     val launcherOrientation: LauncherOrientation = LauncherOrientation.PORTRAIT,
-    val displayScale: DisplayScale = DisplayScale.AUTO
+    val displayScale: DisplayScale = DisplayScale.NORMAL
 )

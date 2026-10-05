@@ -113,7 +113,7 @@ fun StartGrid(
         onDispose { autoScrollJob?.cancel() }
     }
 
-    val totalCols = if (showMoreTiles) 8 else 6
+    val totalCols = if (showMoreTiles) 6 else 4
     val gap = MetroDimensions.tileGap
     val startInset = MetroDimensions.startHorizontalInset
     val topInset = MetroDimensions.startTopInset

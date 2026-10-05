@@ -45,7 +45,7 @@ object MetroTypography {
     val tileLabel = TextStyle(
         fontFamily = SegoeUiFontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.5.sp,
+        fontSize = 13.sp,
         lineHeight = 15.sp,
         letterSpacing = (-0.1).sp,
         color = MetroColors.TextWhite,
@@ -65,7 +65,7 @@ object MetroTypography {
     val tileCountNumber = TextStyle(
         fontFamily = SegoeUiFontFamily,
         fontWeight = FontWeight.Light,
-        fontSize = 48.sp,
+        fontSize = 40.sp,
         lineHeight = 48.sp,
         letterSpacing = (-1).sp,
         color = MetroColors.TextWhite,
@@ -85,7 +85,7 @@ object MetroTypography {
     val tileSubtext = TextStyle(
         fontFamily = SegoeUiFontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.5.sp,
+        fontSize = 13.sp,
         lineHeight = 15.sp,
         color = MetroColors.TextWhite,
         shadow = Shadow(color = Color(0xDD000000), offset = Offset(1f, 1f), blurRadius = 3f)
@@ -94,7 +94,7 @@ object MetroTypography {
     val appListGroupHeader = TextStyle(
         fontFamily = SegoeUiFontFamily,
         fontWeight = FontWeight.Light,
-        fontSize = 32.sp,
+        fontSize = 20.sp,
         lineHeight = 36.sp,
         letterSpacing = (-0.2).sp,
         color = MetroColors.TextWhite
@@ -103,7 +103,7 @@ object MetroTypography {
     val appListItem = TextStyle(
         fontFamily = SegoeUiFontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 17.5.sp,
+        fontSize = 19.sp,
         lineHeight = 22.sp,
         letterSpacing = (-0.15).sp,
         color = MetroColors.TextWhite
