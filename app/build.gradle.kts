@@ -10,7 +10,7 @@ plugins {
 
 android {
   namespace = "com.ab"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk { version = release(37) }
 
   defaultConfig {
     applicationId = "com.aistudio.win10start.xkqmvy"
@@ -75,6 +75,8 @@ googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.W
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {
+  // Shared Windows Metro design system (composite build at MetroSuite/design).
+  implementation("com.metro:metro-ui")
   implementation(platform(libs.androidx.compose.bom))
   implementation(platform(libs.firebase.bom))
   // implementation(libs.accompanist.permissions)

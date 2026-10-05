@@ -25,3 +25,6 @@ dependencyResolutionManagement {
 rootProject.name = "Win10 Start"
 
 include(":app")
+
+// Shared Windows Metro design system (MetroSuite/design), consumed as a composite build.
+includeBuild("../../design")
