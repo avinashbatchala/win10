@@ -52,6 +52,8 @@ internal fun TilesPivotView(
     highlightId: String?
 ) {
     val subtle = LocalMetroSubtleText.current
+    // Observe pinned tiles so system-tile Pin/Unpin state recomposes on change.
+    val pinnedTiles by vm.pinnedTiles.collectAsState()
 
     val entries = buildList<PivotEntry> {
         add(PivotEntry.Header("tiles.live.header", "LIVE TILES"))
@@ -151,11 +153,12 @@ internal fun TilesPivotView(
                     modifier = Modifier.padding(bottom = 6.dp)
                 )
                 SystemTiles.ALL.forEach { def ->
+                    val isPinned = pinnedTiles.any { it.packageName == def.packageName }
                     SystemTileRow(
                         def = def,
-                        pinned = vm.isSystemTilePinned(def.packageName),
+                        pinned = isPinned,
                         onToggle = {
-                            if (vm.isSystemTilePinned(def.packageName)) {
+                            if (isPinned) {
                                 vm.unpinSystemTile(def.packageName)
                             } else {
                                 vm.pinSystemTile(def)

@@ -192,7 +192,6 @@ class WeatherLiveTileProvider : LiveTileProvider {
                 primaryText = temperature,
                 secondaryText = description,
                 iconVector = icon,
-                labelOverride = label,
                 accessibilityDescription = "$description, $temperature in $label"
             )
             TileSize.WIDE, TileSize.LARGE -> LiveTileFace(
@@ -206,7 +205,6 @@ class WeatherLiveTileProvider : LiveTileProvider {
                     "Wind ${snapshot.windKmh.roundToInt()} km/h"
                 ),
                 iconVector = icon,
-                labelOverride = label,
                 accessibilityDescription = "$description, $temperature in $label"
             )
         }

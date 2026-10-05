@@ -42,7 +42,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -199,6 +201,17 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             _pinnedTiles.collect { tiles ->
                 liveTileManager.syncPinnedTiles(tiles)
+            }
+        }
+
+        // Adopt layout changes written by other components while the launcher process is
+        // alive (e.g. PinWeatherTileActivity handling a "pin to start" from MetroWeather).
+        // Compares layout identity only, so locally-recomputed isAvailable flags are kept.
+        viewModelScope.launch {
+            preferences.pinnedTilesFlow.drop(1).collect { external ->
+                if (external != null && layoutsDiffer(external, _pinnedTiles.value)) {
+                    _pinnedTiles.value = external
+                }
             }
         }
 
@@ -721,6 +734,24 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         val compacted = GridManager.compactGrid(updated, totalCols)
         _pinnedTiles.value = compacted
         saveTiles(compacted)
+    }
+
+    /**
+     * True when two tile lists describe a different layout (ids, geometry, size or order).
+     * Runtime-only fields such as [TileModel.isAvailable] are ignored so an unrelated
+     * DataStore emission cannot clobber locally-recomputed availability.
+     */
+    private fun layoutsDiffer(a: List<TileModel>, b: List<TileModel>): Boolean {
+        if (a.size != b.size) return true
+        val byId = b.associateBy { it.id }
+        return a.any { t ->
+            val o = byId[t.id] ?: return true
+            o.packageName != t.packageName ||
+                o.col != t.col ||
+                o.row != t.row ||
+                o.size != t.size ||
+                o.order != t.order
+        }
     }
 
     private fun saveTiles(tiles: List<TileModel>) {

@@ -51,6 +51,7 @@
         <activity
             android:name=".synergy.PinWeatherTileActivity"
             android:exported="true"
+            android:permission="com.ab.permission.PIN_WEATHER_TILE"
             android:excludeFromRecents="true"
             android:noHistory="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar">
